@@ -47,8 +47,11 @@ valgrind: debug
 	@valgrind ./$(TARGET)
 
 ncurses:
-	mkdir ncurses
+	mkdir ncurses-src
 	curl -L https://invisible-island.net/datafiles/release/ncurses.tar.gz | \
-	tar -C ncurses --strip-components=1 -x
+	tar -C ncurses-src --strip-components=1 -xz
+	cd ncurses-src && \
+	./configure --prefix=$$PWD/../ncurses --with-install-prefix= && \
+	make install
 
 -include $(DEPS)
