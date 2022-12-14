@@ -2,6 +2,9 @@
 #include <string.h>
 
 #include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <ncurses.h>
 
@@ -29,7 +32,23 @@ int main() {
     while (n--) {
       struct dirent *dent = namelist[n];
       if (dent->d_type == DT_REG) {
-        printf("%s\n", dent->d_name);
+        char realpath[PATH_MAX] = {0};
+        int r = snprintf(realpath, sizeof(realpath), "%s/%s", tok, dent->d_name);
+        if (r == -1) {
+          perror("snprintf");
+          exit(EXIT_FAILURE);
+        } else if (r >= (int)sizeof(realpath)) {
+          printf("snprintf: destination buffer too small (actual size: %zu, expected: %i)\n", sizeof(realpath), r);
+        }
+
+        struct stat sb;
+        if(stat(realpath, &sb) == -1) {
+          perror("stat");
+          exit(EXIT_FAILURE);
+        }
+        if(sb.st_mode & S_IXUSR){
+          printf("%s\n", dent->d_name);
+        }
       }
       free(dent);
     }
