@@ -1,3 +1,4 @@
 build/
 ncurses/
 ncurses-src/
+.cache/

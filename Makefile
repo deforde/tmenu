@@ -41,13 +41,13 @@ test: san
 	./$(TARGET)
 
 clean:
-	@rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)
 
 compdb: clean
-	@bear -- $(MAKE) san
-	@mv compile_commands.json build
+	bear -- $(MAKE) san
+	mv compile_commands.json build
 
 valgrind: debug
-	@valgrind ./$(TARGET)
+	valgrind ./$(TARGET)
 
 -include $(DEPS)
