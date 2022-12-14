@@ -8,10 +8,11 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
+INC_DIRS += ncurses/include/ncurses
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 CFLAGS := -Wall -Wextra -Wpedantic -Werror $(INC_FLAGS) -MMD -MP
-LDFLAGS :=
+LDFLAGS := -lncurses
 
 TARGET := $(BUILD_DIR)/$(TARGET_NAME)
 
@@ -25,7 +26,7 @@ san: debug
 san: CFLAGS += -fsanitize=address,undefined
 san: LDFLAGS += -fsanitize=address,undefined
 
-target: ncurses $(TARGET)
+target: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
@@ -34,7 +35,10 @@ $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: clean compdb valgrind
+.PHONY: clean compdb test valgrind
+
+test: san
+	./$(TARGET)
 
 clean:
 	@rm -rf $(BUILD_DIR)
@@ -45,13 +49,5 @@ compdb: clean
 
 valgrind: debug
 	@valgrind ./$(TARGET)
-
-ncurses:
-	mkdir ncurses-src
-	curl -L https://invisible-island.net/datafiles/release/ncurses.tar.gz | \
-	tar -C ncurses-src --strip-components=1 -xz
-	cd ncurses-src && \
-	./configure --prefix=$$PWD/../ncurses --with-install-prefix= && \
-	make install
 
 -include $(DEPS)
