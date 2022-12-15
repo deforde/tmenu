@@ -43,7 +43,7 @@ static void dbgfree(void *p);
 static Entry *createEntry(const Allocator *allocator, const char *s);
 static void destroyEntry(const Allocator *allocator, Entry *e);
 static bool addEntry(Entry **entries, Entry *e);
-static void freeEntries(const Allocator *allocator, Entry *entries);
+static void destroyEntries(const Allocator *allocator, Entry *entries);
 static void printEntries(Entry *entries);
 
 // global vars
@@ -63,14 +63,14 @@ Entry *createEntry(const Allocator *allocator, const char *s) {
   size_t nm_len = strlen(s) + 1;
   size_t sz = sizeof(Entry) + nm_len;
   Entry *e = allocator->alloc(sz);
-  strncpy(e->name, s, nm_len);
-  assert(e->name[nm_len - 1] == 0); // TODO: add proper error-checking
+  if (e) {
+    strncpy(e->name, s, nm_len);
+    assert(e->name[nm_len - 1] == 0); // TODO: add proper error-checking
+  }
   return e;
 }
 
-void destroyEntry(const Allocator *allocator, Entry *e) {
-  allocator->free(e);
-}
+void destroyEntry(const Allocator *allocator, Entry *e) { allocator->free(e); }
 
 bool addEntry(Entry **entries, Entry *e) {
   for (Entry *p = *entries; p; p = p->next) {
@@ -78,12 +78,15 @@ bool addEntry(Entry **entries, Entry *e) {
       return false;
     }
   }
+  if (*entries) {
+    (*entries)->prev = e;
+  }
   e->next = *entries;
   *entries = e;
   return true;
 }
 
-void freeEntries(const Allocator *allocator, Entry *entries) {
+void destroyEntries(const Allocator *allocator, Entry *entries) {
   for (Entry *e = entries; e;) {
     Entry *tmp = e->next;
     destroyEntry(allocator, e);
@@ -159,8 +162,8 @@ int main() {
     free(namelist);
   }
 
-  printEntries(entries);
-  freeEntries(allocator, entries);
+  // printEntries(entries);
+  destroyEntries(allocator, entries);
 
   exit(EXIT_SUCCESS);
 }
