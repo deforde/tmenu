@@ -95,7 +95,7 @@ void appendEntry(EntryList *l, Entry *e) {
 }
 
 void appendEntryList(EntryList *l, EntryList m) {
-  if(l->tail) {
+  if (l->tail) {
     l->tail->next = m.head;
   }
   l->tail = m.tail;
@@ -147,7 +147,7 @@ void printEntries(EntryList l) {
 
 void filterEntries(EntryList *l, EntryList *fout, const char *s) {
   for (Entry *e = l->head; e;) {
-    if(!strstr(e->name, s)) {
+    if (!strstr(e->name, s)) {
       Entry *tmp = e->next;
       removeEntry(l, e);
       appendEntry(fout, e);
@@ -167,8 +167,8 @@ int main() {
 
   Allocator *allocator = &dbgallocator;
   EntryList entries = {
-    .head = NULL,
-    .tail = NULL,
+      .head = NULL,
+      .tail = NULL,
   };
 
   char *saveptr = NULL;
@@ -224,8 +224,8 @@ int main() {
   }
 
   EntryList fout = {
-    .head = NULL,
-    .tail = NULL,
+      .head = NULL,
+      .tail = NULL,
   };
   filterEntries(&entries, &fout, "gcc");
 
