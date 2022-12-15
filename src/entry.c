@@ -2,7 +2,13 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 Entry *entryCreate(const Allocator *allocator, const char *s) {
   size_t nm_len = strlen(s) + 1;
@@ -16,6 +22,76 @@ Entry *entryCreate(const Allocator *allocator, const char *s) {
 }
 
 void entryDestroy(const Allocator *allocator, Entry *e) { allocator->free(e); }
+
+EntryList entrylistInit(const Allocator *allocator) {
+  EntryList entries = {
+      .head = NULL,
+      .tail = NULL,
+  };
+
+  char *path = getenv("PATH");
+  if (path == NULL) {
+    printf("Failed to get the environment variable: 'PATH'\n");
+    return entries;
+  }
+
+  char *saveptr = NULL;
+  for (char *str = path;; str = NULL) {
+    char *tok = strtok_r(str, ":", &saveptr);
+    if (tok == NULL) {
+      break;
+    }
+
+    struct dirent **namelist = NULL;
+    int n = scandir(tok, &namelist, NULL, alphasort);
+    if (n == -1) {
+      // perror("scandir");
+      continue;
+    }
+
+    while (n--) {
+      struct dirent *dent = namelist[n];
+      if (dent->d_type == DT_REG) {
+        char realpath[PATH_MAX] = {0};
+        int r =
+            snprintf(realpath, sizeof(realpath), "%s/%s", tok, dent->d_name);
+        if (r == -1) {
+          perror("snprintf");
+          goto err;
+        } else if (r >= (int)sizeof(realpath)) {
+          printf("snprintf: destination buffer too small (actual size: %zu, "
+                 "expected: %i)\n",
+                 sizeof(realpath), r);
+          goto err;
+        }
+
+        struct stat sb;
+        if (stat(realpath, &sb) == -1) {
+          perror("stat");
+          goto err;
+        }
+        if (sb.st_mode & S_IXUSR) {
+          // printf("%s\n", dent->d_name);
+          Entry *e = entryCreate(allocator, dent->d_name);
+          if (e == NULL) {
+            printf("Failed to allocate memory for entry\n");
+            goto err;
+          }
+          if (!entrylistAppendUnique(&entries, e)) {
+            entryDestroy(allocator, e);
+          }
+        }
+      }
+
+    err:
+      free(dent);
+    }
+
+    free(namelist);
+  }
+
+  return entries;
+}
 
 void entrylistAppend(EntryList *l, Entry *e) {
   e->prev = l->tail;
