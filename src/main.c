@@ -35,6 +35,11 @@ struct Entry {
   char name[];
 };
 
+typedef struct EntryList {
+  Entry *head;
+  Entry *tail;
+} EntryList;
+
 // func decls
 
 static void *dbgalloc(size_t sz);
@@ -42,12 +47,12 @@ static void dbgfree(void *p);
 
 static Entry *createEntry(const Allocator *allocator, const char *s);
 static void destroyEntry(const Allocator *allocator, Entry *e);
-static void appendEntry(Entry **entries, Entry *e);
-static void removeEntry(Entry *e);
-static bool addEntry(Entry **entries, Entry *e);
-static void destroyEntries(const Allocator *allocator, Entry *entries);
-static void printEntries(Entry *entries);
-static void filterEntries(Entry **entries, Entry **fout, const char *s);
+static void appendEntry(EntryList *l, Entry *e);
+static void removeEntry(EntryList *l, Entry *e);
+static bool appendUniqueEntry(EntryList *l, Entry *e);
+static void destroyEntries(const Allocator *allocator, EntryList *l);
+static void printEntries(EntryList l);
+static void filterEntries(EntryList *l, EntryList *fout, const char *s);
 
 // global vars
 
@@ -75,25 +80,30 @@ Entry *createEntry(const Allocator *allocator, const char *s) {
 
 void destroyEntry(const Allocator *allocator, Entry *e) { allocator->free(e); }
 
-void appendEntry(Entry **entries, Entry *e) {
-  if (*entries) {
-    (*entries)->prev = e;
+void appendEntry(EntryList *l, Entry *e) {
+  e->prev = l->tail;
+  if (!l->head) {
+    l->head = e;
   }
-  e->next = *entries;
-  *entries = e;
+  if (!l->tail) {
+    l->tail = e;
+  } else {
+    l->tail->next = e;
+    l->tail = e;
+  }
 }
 
-bool addEntry(Entry **entries, Entry *e) {
-  for (Entry *p = *entries; p; p = p->next) {
+bool appendUniqueEntry(EntryList *l, Entry *e) {
+  for (Entry *p = l->head; p; p = p->next) {
     if (strlen(p->name) == strlen(e->name) && strcmp(p->name, e->name) == 0) {
       return false;
     }
   }
-  appendEntry(entries, e);
+  appendEntry(l, e);
   return true;
 }
 
-void removeEntry(Entry *e) {
+void removeEntry(EntryList *l, Entry *e) {
   Entry *prev = e->prev;
   Entry *next = e->next;
   if (prev) {
@@ -104,31 +114,35 @@ void removeEntry(Entry *e) {
   }
   e->prev = NULL;
   e->next = NULL;
+  if (e == l->head) {
+    l->head = next;
+  } else if (e == l->tail) {
+    l->tail = prev;
+  }
 }
 
-void destroyEntries(const Allocator *allocator, Entry *entries) {
-  for (Entry *e = entries; e;) {
+void destroyEntries(const Allocator *allocator, EntryList *l) {
+  for (Entry *e = l->head; e;) {
     Entry *tmp = e->next;
     destroyEntry(allocator, e);
     e = tmp;
   }
+  l->head = NULL;
+  l->tail = NULL;
 }
 
-void printEntries(Entry *entries) {
-  for (Entry *e = entries; e; e = e->next) {
+void printEntries(EntryList l) {
+  for (Entry *e = l.head; e; e = e->next) {
     printf("%s\n", e->name);
   }
 }
 
-void filterEntries(Entry **entries, Entry **fout, const char *s) {
-  for (Entry *e = *entries; e;) {
+void filterEntries(EntryList *l, EntryList *fout, const char *s) {
+  for (Entry *e = l->head; e;) {
     if(!strstr(e->name, s)) {
       Entry *tmp = e->next;
-      removeEntry(e);
+      removeEntry(l, e);
       appendEntry(fout, e);
-      if (*entries == e) {
-        *entries = tmp;
-      }
       e = tmp;
       continue;
     }
@@ -144,7 +158,10 @@ int main() {
   }
 
   Allocator *allocator = &dbgallocator;
-  Entry *entries = NULL;
+  EntryList entries = {
+    .head = NULL,
+    .tail = NULL,
+  };
 
   char *saveptr = NULL;
   for (char *str = path;; str = NULL) {
@@ -187,7 +204,7 @@ int main() {
             printf("Failed to allocate memory for entry\n");
             exit(EXIT_FAILURE);
           }
-          if (!addEntry(&entries, e)) {
+          if (!appendUniqueEntry(&entries, e)) {
             destroyEntry(allocator, e);
           }
         }
@@ -198,12 +215,15 @@ int main() {
     free(namelist);
   }
 
-  Entry *fout = NULL;
+  EntryList fout = {
+    .head = NULL,
+    .tail = NULL,
+  };
   filterEntries(&entries, &fout, "gcc");
   printEntries(entries);
 
-  destroyEntries(allocator, fout);
-  destroyEntries(allocator, entries);
+  destroyEntries(allocator, &fout);
+  destroyEntries(allocator, &entries);
 
   exit(EXIT_SUCCESS);
 }
