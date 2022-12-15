@@ -48,6 +48,7 @@ static void dbgfree(void *p);
 static Entry *createEntry(const Allocator *allocator, const char *s);
 static void destroyEntry(const Allocator *allocator, Entry *e);
 static void appendEntry(EntryList *l, Entry *e);
+static void appendEntryList(EntryList *l, EntryList m);
 static void removeEntry(EntryList *l, Entry *e);
 static bool appendUniqueEntry(EntryList *l, Entry *e);
 static void destroyEntries(const Allocator *allocator, EntryList *l);
@@ -91,6 +92,13 @@ void appendEntry(EntryList *l, Entry *e) {
     l->tail->next = e;
     l->tail = e;
   }
+}
+
+void appendEntryList(EntryList *l, EntryList m) {
+  if(l->tail) {
+    l->tail->next = m.head;
+  }
+  l->tail = m.tail;
 }
 
 bool appendUniqueEntry(EntryList *l, Entry *e) {
@@ -220,9 +228,13 @@ int main() {
     .tail = NULL,
   };
   filterEntries(&entries, &fout, "gcc");
+
   printEntries(entries);
 
-  destroyEntries(allocator, &fout);
+  appendEntryList(&entries, fout);
+  fout.head = NULL;
+  fout.tail = NULL;
+
   destroyEntries(allocator, &entries);
 
   exit(EXIT_SUCCESS);
