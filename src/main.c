@@ -42,9 +42,12 @@ static void dbgfree(void *p);
 
 static Entry *createEntry(const Allocator *allocator, const char *s);
 static void destroyEntry(const Allocator *allocator, Entry *e);
+static void appendEntry(Entry **entries, Entry *e);
+static void removeEntry(Entry *e);
 static bool addEntry(Entry **entries, Entry *e);
 static void destroyEntries(const Allocator *allocator, Entry *entries);
 static void printEntries(Entry *entries);
+static void filterEntries(Entry **entries, Entry **fout, const char *s);
 
 // global vars
 
@@ -72,18 +75,35 @@ Entry *createEntry(const Allocator *allocator, const char *s) {
 
 void destroyEntry(const Allocator *allocator, Entry *e) { allocator->free(e); }
 
+void appendEntry(Entry **entries, Entry *e) {
+  if (*entries) {
+    (*entries)->prev = e;
+  }
+  e->next = *entries;
+  *entries = e;
+}
+
 bool addEntry(Entry **entries, Entry *e) {
   for (Entry *p = *entries; p; p = p->next) {
     if (strlen(p->name) == strlen(e->name) && strcmp(p->name, e->name) == 0) {
       return false;
     }
   }
-  if (*entries) {
-    (*entries)->prev = e;
-  }
-  e->next = *entries;
-  *entries = e;
+  appendEntry(entries, e);
   return true;
+}
+
+void removeEntry(Entry *e) {
+  Entry *prev = e->prev;
+  Entry *next = e->next;
+  if (prev) {
+    prev->next = next;
+  }
+  if (next) {
+    next->prev = prev;
+  }
+  e->prev = NULL;
+  e->next = NULL;
 }
 
 void destroyEntries(const Allocator *allocator, Entry *entries) {
@@ -97,6 +117,22 @@ void destroyEntries(const Allocator *allocator, Entry *entries) {
 void printEntries(Entry *entries) {
   for (Entry *e = entries; e; e = e->next) {
     printf("%s\n", e->name);
+  }
+}
+
+void filterEntries(Entry **entries, Entry **fout, const char *s) {
+  for (Entry *e = *entries; e;) {
+    if(!strstr(e->name, s)) {
+      Entry *tmp = e->next;
+      removeEntry(e);
+      appendEntry(fout, e);
+      if (*entries == e) {
+        *entries = tmp;
+      }
+      e = tmp;
+      continue;
+    }
+    e = e->next;
   }
 }
 
@@ -162,7 +198,11 @@ int main() {
     free(namelist);
   }
 
-  // printEntries(entries);
+  Entry *fout = NULL;
+  filterEntries(&entries, &fout, "gcc");
+  printEntries(entries);
+
+  destroyEntries(allocator, fout);
   destroyEntries(allocator, entries);
 
   exit(EXIT_SUCCESS);
