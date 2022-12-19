@@ -83,10 +83,9 @@ int main(int argc, char *argv[]) {
     case KEY_UP:
       menu_driver(menu, REQ_UP_ITEM);
       break;
-    case '\n': {
+    case '\n':
       select = item_userptr(current_item(menu));
       goto end;
-    }
     }
   }
 
