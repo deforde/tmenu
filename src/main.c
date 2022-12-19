@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
       }
       break;
     default:
-      if(isgraph(c)) {
+      if (isgraph(c)) {
         addch(c);
         filter[filter_idx++] = (char)c;
         entrylistFilter(&entries, &fout, filter);
