@@ -89,8 +89,8 @@ int main(int argc, char *argv[]) {
   noecho();
   keypad(stdscr, true);
 
-  __attribute__((unused)) int nrows = 0;
-  __attribute__((unused)) int ncols = 0;
+  int nrows = 0;
+  int ncols = 0;
   getmaxyx(stdscr, nrows, ncols);
 
   ITEM **items = NULL;
