@@ -18,19 +18,16 @@
 #include <unistd.h>
 
 static void usage(void) {
-  puts(
-  "Usage: tmenu [options] <filter>\n"
-  "Options:\n"
-  "    -h         Display usage message.\n"
-  "\n"
-  "    filter     A string used to filter the application menu."
-  );
+  puts("Usage: tmenu [options] <filter>\n"
+       "Options:\n"
+       "    -h         Display usage message.\n"
+       "\n"
+       "    filter     A string used to filter the application menu.");
 }
 
 int main(int argc, char *argv[]) {
   int opt = 0;
-  struct option longopts[] = {{"help", no_argument, NULL, 'h'},
-                              {0, 0, 0, 0}};
+  struct option longopts[] = {{"help", no_argument, NULL, 'h'}, {0, 0, 0, 0}};
   while ((opt = getopt_long(argc, argv, "h", longopts, NULL)) != -1) {
     switch (opt) {
     case 'h':
@@ -58,12 +55,12 @@ int main(int argc, char *argv[]) {
 
   entrylistFilter(&entries, &fout, filter);
 
-	initscr();
-	cbreak();
-	noecho();
-	keypad(stdscr, TRUE);
+  initscr();
+  cbreak();
+  noecho();
+  keypad(stdscr, TRUE);
 
-	ITEM **items = calloc(entries.len + 1, sizeof(ITEM*));
+  ITEM **items = calloc(entries.len + 1, sizeof(ITEM *));
   size_t i = 0;
   for (Entry *e = entries.head; e; e = e->next) {
     items[i] = new_item(e->name, NULL);
@@ -78,18 +75,18 @@ int main(int argc, char *argv[]) {
 
   Entry *select = NULL;
   int c = 0;
-	while((c = getch()) != KEY_F(1)) {
-    switch(c) {
-      case KEY_DOWN:
-        menu_driver(menu, REQ_DOWN_ITEM);
-        break;
-      case KEY_UP:
-        menu_driver(menu, REQ_UP_ITEM);
-        break;
-      case '\n': {
-        select = item_userptr(current_item(menu));
-        goto end;
-      }
+  while ((c = getch()) != KEY_F(1)) {
+    switch (c) {
+    case KEY_DOWN:
+      menu_driver(menu, REQ_DOWN_ITEM);
+      break;
+    case KEY_UP:
+      menu_driver(menu, REQ_UP_ITEM);
+      break;
+    case '\n': {
+      select = item_userptr(current_item(menu));
+      goto end;
+    }
     }
   }
 

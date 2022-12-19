@@ -87,8 +87,8 @@ void testEntryBasic(void) {
   TEST_ASSERT(entrylistAppendUnique(&entries, arr[2]));
 
   EntryList fout = {
-    .head = NULL,
-    .tail = NULL,
+      .head = NULL,
+      .tail = NULL,
   };
   entrylistFilter(&entries, &fout, "name_3");
   TEST_ASSERT_EQUAL_PTR(entries.head, entries.tail);
