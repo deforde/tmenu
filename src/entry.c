@@ -106,12 +106,10 @@ void entrylistAppend(EntryList *l, Entry *e) {
   if (!l->head) {
     l->head = e;
   }
-  if (!l->tail) {
-    l->tail = e;
-  } else {
+  if (l->tail) {
     l->tail->next = e;
-    l->tail = e;
   }
+  l->tail = e;
 }
 
 void entrylistExtend(EntryList *l, EntryList m) {
@@ -144,7 +142,8 @@ void entrylistRemove(EntryList *l, Entry *e) {
   e->next = NULL;
   if (e == l->head) {
     l->head = next;
-  } else if (e == l->tail) {
+  }
+  if (e == l->tail) {
     l->tail = prev;
   }
 }

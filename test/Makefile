@@ -16,7 +16,7 @@ INC_DIRS += ncurses/include/ncurses
 INC_DIRS += $(UNITY_INC_DIR)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-CFLAGS := -Wall -Wextra -Wpedantic -Werror $(INC_FLAGS) -MMD -MP -fsanitize=address,undefined
+CFLAGS := -g3 -Wall -Wextra -Wpedantic -Werror $(INC_FLAGS) -MMD -MP -fsanitize=address,undefined
 LDFLAGS := $(UNITY_LIB) -fsanitize=address,undefined
 
 TARGET := $(BASE_BUILD_DIR)/$(TARGET_NAME)
