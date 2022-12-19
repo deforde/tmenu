@@ -6,6 +6,8 @@
  * If not, please write to: <daniel.forde001 at gmail dot com>,
  * or visit: https://github.com/deforde/tmenu
  */
+#include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,16 +15,30 @@
 #include "entry.h"
 
 #include <getopt.h>
+#include <linux/limits.h>
 #include <menu.h>
 #include <ncurses.h>
 #include <unistd.h>
 
 static void usage(void) {
-  puts("Usage: tmenu [options] <filter>\n"
+  puts("Usage: tmenu [options]\n"
        "Options:\n"
-       "    -h         Display usage message.\n"
-       "\n"
-       "    filter     A string used to filter the application menu.");
+       "    -h         Display usage message.");
+}
+
+static void buildItemList(ITEM ***pitems, EntryList entries) {
+  ITEM **items = *pitems;
+  ITEM **tmp = realloc(items, (entries.len + 1) * sizeof(ITEM *));
+  assert(!tmp); // TODO: error checking
+  items = tmp;
+  size_t i = 0;
+  for (Entry *e = entries.head; e; e = e->next) {
+    items[i] = new_item(e->name, NULL);
+    set_item_userptr(items[i], e);
+    i++;
+  }
+  items[i] = NULL;
+  *pitems = items;
 }
 
 int main(int argc, char *argv[]) {
@@ -40,12 +56,9 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
     }
   }
-  if (optind >= argc) {
-    usage();
-    exit(EXIT_FAILURE);
-  }
 
-  const char *filter = argv[optind];
+  char filter[PATH_MAX] = {0};
+  size_t filter_idx = 0;
 
   EntryList entries = entrylistInit(DBG_ALLOCATOR);
   EntryList fout = {
@@ -53,29 +66,38 @@ int main(int argc, char *argv[]) {
       .tail = NULL,
   };
 
-  entrylistFilter(&entries, &fout, filter);
-
   initscr();
   cbreak();
   noecho();
-  keypad(stdscr, TRUE);
+  keypad(stdscr, true);
 
-  ITEM **items = calloc(entries.len + 1, sizeof(ITEM *));
-  size_t i = 0;
-  for (Entry *e = entries.head; e; e = e->next) {
-    items[i] = new_item(e->name, NULL);
-    set_item_userptr(items[i], e);
-    i++;
-  }
-  items[i] = NULL;
+  __attribute__((unused)) int nrows = 0;
+  __attribute__((unused)) int ncols = 0;
+  getmaxyx(stdscr, nrows, ncols);
+
+  ITEM **items = NULL;
+  buildItemList(&items, entries);
 
   MENU *menu = new_menu(items);
-  post_menu(menu);
+
+  int nrows_win = nrows - 3;
+  int ncols_win = ncols - 2;
+  WINDOW *win = newwin(nrows_win, ncols_win, 1, 2);
+  keypad(win, true);
+
+  set_menu_mark(menu, "");
+  set_menu_win(menu, win);
+  set_menu_sub(menu, derwin(win, nrows_win, ncols_win, 0, 0));
+  mvprintw(LINES - 2, 0, "q to exit");
+  move(0, 0);
   refresh();
+
+  post_menu(menu);
+  wrefresh(win);
 
   Entry *select = NULL;
   int c = 0;
-  while ((c = getch()) != KEY_F(1)) {
+  while ((c = getch()) != 'q') {
     switch (c) {
     case KEY_DOWN:
       menu_driver(menu, REQ_DOWN_ITEM);
@@ -86,7 +108,17 @@ int main(int argc, char *argv[]) {
     case '\n':
       select = item_userptr(current_item(menu));
       goto end;
+    default:
+      addch(c);
+      filter[filter_idx++] = (char)c;
+      entrylistFilter(&entries, &fout, filter);
+      buildItemList(&items, entries);
+      unpost_menu(menu);
+      set_menu_items(menu, items);
+      post_menu(menu);
+      break;
     }
+    wrefresh(win);
   }
 
 end:
@@ -95,10 +127,11 @@ end:
   fout.tail = NULL;
   entrylistDestroy(DBG_ALLOCATOR, &entries);
 
+  unpost_menu(menu);
+  free_menu(menu);
   for (size_t j = 0; j < entries.len; j++) {
     free_item(items[j]);
   }
-  free_menu(menu);
   endwin();
 
   if (select) {
