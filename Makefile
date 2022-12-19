@@ -2,6 +2,7 @@ TARGET_NAME := tmenu
 
 BUILD_DIR := build
 SRC_DIRS := src
+TEST_DIR := test
 
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
@@ -35,10 +36,13 @@ $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: clean compdb test valgrind
+.PHONY: clean compdb run test valgrind
 
-test: san
+run: san
 	./$(TARGET)
+
+test:
+	$(MAKE) -C $(TEST_DIR)
 
 clean:
 	rm -rf $(BUILD_DIR)
