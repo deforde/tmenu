@@ -36,7 +36,7 @@ $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: clean compdb run test valgrind
+.PHONY: clean compdb run test valgrind test-compdb
 
 run: san
 	./$(TARGET)
@@ -46,9 +46,15 @@ test:
 
 clean:
 	rm -rf $(BUILD_DIR)
+	$(MAKE) -C $(TEST_DIR) clean
 
 compdb: clean
 	bear -- $(MAKE) san
+	mv compile_commands.json build
+
+test-compdb:
+	bear -- $(MAKE) -C $(TEST_DIR) build-only
+	mkdir -p build
 	mv compile_commands.json build
 
 valgrind: debug

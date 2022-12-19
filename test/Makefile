@@ -21,7 +21,7 @@ LDFLAGS := $(UNITY_LIB) -fsanitize=address,undefined
 
 TARGET := $(BASE_BUILD_DIR)/$(TARGET_NAME)
 
-.PHONY: all
+.PHONY: all build-only
 
 all: unity $(TARGET)
 	./$(TARGET)
@@ -44,5 +44,7 @@ $(UNITY_LIB):
 	cd Unity/build && \
 	cmake .. && \
 	cmake --build . -j 7
+
+build-only: clean unity $(TARGET)
 
 -include $(DEPS)
