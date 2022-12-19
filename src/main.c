@@ -27,11 +27,8 @@ static void usage(void) {
        "    -h         Display usage message.");
 }
 
-static void buildItemList(ITEM ***pitems, EntryList entries) {
-  ITEM **items = *pitems;
-  ITEM **tmp = realloc(items, (entries.len + 1) * sizeof(ITEM *));
-  assert(tmp); // TODO: error checking
-  items = tmp;
+static ITEM **buildItemList(EntryList entries) {
+  ITEM **items = calloc(entries.len + 1, sizeof(ITEM *));
   size_t i = 0;
   for (Entry *e = entries.head; e; e = e->next) {
     items[i] = new_item(e->name, NULL);
@@ -39,7 +36,7 @@ static void buildItemList(ITEM ***pitems, EntryList entries) {
     i++;
   }
   items[i] = NULL;
-  *pitems = items;
+  return items;
 }
 
 static void destroyItemList(ITEM **items) {
@@ -50,8 +47,7 @@ static void destroyItemList(ITEM **items) {
 }
 
 static void updateItemList(EntryList entries, ITEM ***pitems, MENU *menu) {
-  ITEM **new_items = NULL;
-  buildItemList(&new_items, entries);
+  ITEM **new_items = buildItemList(entries);
   unpost_menu(menu);
   set_menu_items(menu, new_items);
   destroyItemList(*pitems);
@@ -93,8 +89,7 @@ int main(int argc, char *argv[]) {
   int ncols = 0;
   getmaxyx(stdscr, nrows, ncols);
 
-  ITEM **items = NULL;
-  buildItemList(&items, entries);
+  ITEM **items = buildItemList(entries);
 
   MENU *menu = new_menu(items);
 
