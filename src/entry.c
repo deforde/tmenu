@@ -23,8 +23,14 @@ Entry *entryCreate(const Allocator *allocator, const char *s) {
   size_t sz = sizeof(Entry) + nm_len;
   Entry *e = allocator->alloc(sz);
   if (e) {
-    strncpy(e->name, s, nm_len);
-    assert(e->name[nm_len - 1] == 0); // TODO: add proper error-checking
+    strncpy(e->path, s, nm_len);
+    e->name = e->path;
+    char *sep = strrchr(e->path, '/');
+    if (sep) {
+      e->name = ++sep;
+      assert(e->name); // TODO: add proper error-checking
+    }
+    assert(e->path[nm_len - 1] == 0); // TODO: add proper error-checking
   }
   return e;
 }
@@ -80,7 +86,7 @@ EntryList entrylistInit(const Allocator *allocator) {
         }
         if (sb.st_mode & S_IXUSR) {
           // printf("%s\n", dent->d_name);
-          Entry *e = entryCreate(allocator, dent->d_name);
+          Entry *e = entryCreate(allocator, realpath);
           if (e == NULL) {
             printf("Failed to allocate memory for entry\n");
             goto err;
@@ -110,6 +116,7 @@ void entrylistAppend(EntryList *l, Entry *e) {
     l->tail->next = e;
   }
   l->tail = e;
+  l->len++;
 }
 
 void entrylistExtend(EntryList *l, EntryList m) {
@@ -117,6 +124,7 @@ void entrylistExtend(EntryList *l, EntryList m) {
     l->tail->next = m.head;
   }
   l->tail = m.tail;
+  l->len += m.len;
 }
 
 bool entrylistAppendUnique(EntryList *l, Entry *e) {
@@ -126,6 +134,7 @@ bool entrylistAppendUnique(EntryList *l, Entry *e) {
     }
   }
   entrylistAppend(l, e);
+  l->len++;
   return true;
 }
 
@@ -146,6 +155,7 @@ void entrylistRemove(EntryList *l, Entry *e) {
   if (e == l->tail) {
     l->tail = prev;
   }
+  l->len--;
 }
 
 void entrylistDestroy(const Allocator *allocator, EntryList *l) {
@@ -156,6 +166,7 @@ void entrylistDestroy(const Allocator *allocator, EntryList *l) {
   }
   l->head = NULL;
   l->tail = NULL;
+  l->len = 0;
 }
 
 void entrylistPrint(EntryList l) {

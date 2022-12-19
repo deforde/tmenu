@@ -13,7 +13,7 @@ INC_DIRS += ncurses/include/ncurses
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 CFLAGS := -Wall -Wextra -Wpedantic -Werror $(INC_FLAGS) -MMD -MP
-LDFLAGS := -lncurses
+LDFLAGS := -lncurses -lmenu
 
 TARGET := $(BUILD_DIR)/$(TARGET_NAME)
 

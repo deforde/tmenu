@@ -10,6 +10,7 @@
 #define ENTRY_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "allocator.h"
 
@@ -17,12 +18,14 @@ typedef struct Entry Entry;
 struct Entry {
   Entry *prev;
   Entry *next;
-  char name[];
+  char *name;
+  char path[];
 };
 
 typedef struct EntryList {
   Entry *head;
   Entry *tail;
+  size_t len;
 } EntryList;
 
 Entry *entryCreate(const Allocator *allocator, const char *s);
