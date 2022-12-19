@@ -32,6 +32,7 @@ Entry *entryCreate(const Allocator *allocator, const char *s);
 void entryDestroy(const Allocator *allocator, Entry *e);
 
 EntryList entrylistInit(const Allocator *allocator);
+void entrylistClear(EntryList *l);
 void entrylistAppend(EntryList *l, Entry *e);
 void entrylistExtend(EntryList *l, EntryList m);
 void entrylistRemove(EntryList *l, Entry *e);

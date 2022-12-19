@@ -7,6 +7,7 @@
  * or visit: https://github.com/deforde/tmenu
  */
 #include <assert.h>
+#include <ctype.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,7 @@ static void usage(void) {
 static void buildItemList(ITEM ***pitems, EntryList entries) {
   ITEM **items = *pitems;
   ITEM **tmp = realloc(items, (entries.len + 1) * sizeof(ITEM *));
-  assert(!tmp); // TODO: error checking
+  assert(tmp); // TODO: error checking
   items = tmp;
   size_t i = 0;
   for (Entry *e = entries.head; e; e = e->next) {
@@ -39,6 +40,23 @@ static void buildItemList(ITEM ***pitems, EntryList entries) {
   }
   items[i] = NULL;
   *pitems = items;
+}
+
+static void destroyItemList(ITEM **items) {
+  for (size_t i = 0; items[i]; i++) {
+    free_item(items[i]);
+  }
+  free(items);
+}
+
+static void updateItemList(EntryList entries, ITEM ***pitems, MENU *menu) {
+  ITEM **new_items = NULL;
+  buildItemList(&new_items, entries);
+  unpost_menu(menu);
+  set_menu_items(menu, new_items);
+  destroyItemList(*pitems);
+  *pitems = new_items;
+  post_menu(menu);
 }
 
 int main(int argc, char *argv[]) {
@@ -108,35 +126,43 @@ int main(int argc, char *argv[]) {
     case '\n':
       select = item_userptr(current_item(menu));
       goto end;
+    case KEY_BACKSPACE:
+      if (filter_idx > 0) {
+        filter[--filter_idx] = 0;
+        move(0, filter_idx);
+        clrtoeol();
+        entrylistExtend(&entries, fout);
+        entrylistClear(&fout);
+        entrylistFilter(&entries, &fout, filter);
+        updateItemList(entries, &items, menu);
+      }
+      break;
     default:
-      addch(c);
-      filter[filter_idx++] = (char)c;
-      entrylistFilter(&entries, &fout, filter);
-      buildItemList(&items, entries);
-      unpost_menu(menu);
-      set_menu_items(menu, items);
-      post_menu(menu);
+      if(isgraph(c)) {
+        addch(c);
+        filter[filter_idx++] = (char)c;
+        entrylistFilter(&entries, &fout, filter);
+        updateItemList(entries, &items, menu);
+      }
       break;
     }
     wrefresh(win);
   }
 
 end:
-  entrylistExtend(&entries, fout);
-  fout.head = NULL;
-  fout.tail = NULL;
-  entrylistDestroy(DBG_ALLOCATOR, &entries);
-
   unpost_menu(menu);
   free_menu(menu);
-  for (size_t j = 0; j < entries.len; j++) {
-    free_item(items[j]);
-  }
+  destroyItemList(items);
   endwin();
 
   if (select) {
     execl(select->path, select->name, NULL);
   }
+
+  entrylistExtend(&entries, fout);
+  fout.head = NULL;
+  fout.tail = NULL;
+  entrylistDestroy(DBG_ALLOCATOR, &entries);
 
   exit(EXIT_SUCCESS);
 }

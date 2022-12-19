@@ -120,11 +120,9 @@ void entrylistAppend(EntryList *l, Entry *e) {
 }
 
 void entrylistExtend(EntryList *l, EntryList m) {
-  if (l->tail) {
-    l->tail->next = m.head;
-  }
+  entrylistAppend(l, m.head);
   l->tail = m.tail;
-  l->len += m.len;
+  l->len += m.len - 1;
 }
 
 bool entrylistAppendUnique(EntryList *l, Entry *e) {
@@ -176,6 +174,9 @@ void entrylistPrint(EntryList l) {
 }
 
 void entrylistFilter(EntryList *l, EntryList *fout, const char *s) {
+  if (s[0] == 0) {
+    return;
+  }
   for (Entry *e = l->head; e;) {
     if (!strstr(e->name, s)) {
       Entry *tmp = e->next;
@@ -186,4 +187,10 @@ void entrylistFilter(EntryList *l, EntryList *fout, const char *s) {
     }
     e = e->next;
   }
+}
+
+void entrylistClear(EntryList *l) {
+  l->head = NULL;
+  l->tail = NULL;
+  l->len = 0;
 }
