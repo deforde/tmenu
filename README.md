@@ -1,6 +1,8 @@
 # tmenu
 A dmenu-inspired dynamic terminal-based application menu.
 
+[![build](https://github.com/deforde/tmenu/actions/workflows/build.yml/badge.svg)](https://github.com/deforde/tmenu/actions/workflows/build.yml)
+
 
 ### TODO
 - Implement (and add tests for) arena allocator.
