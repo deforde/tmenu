@@ -59,9 +59,16 @@ bool createRealpath(char (*realpath)[PATH_MAX], const char *branch,
 
 bool isRelevantFiletype(char (*realpath)[PATH_MAX]) {
   struct stat sb;
-  if (stat(*realpath, &sb) == -1) {
-    perror("stat");
+  if (lstat(*realpath, &sb) == -1) {
+    perror("lstat");
     return false; // TODO: Error here?
+  }
+  if (sb.st_mode & S_IFMT) {
+    memset(&sb, 0, sizeof(sb));
+    if (stat(*realpath, &sb) == -1) {
+      perror("stat");
+      return false; // TODO: Error here?
+    }
   }
   return sb.st_mode & S_IXUSR;
 }
@@ -94,12 +101,11 @@ EntryList entrylistInit(const Allocator *allocator) {
 
     while (n--) {
       struct dirent *dent = namelist[n];
-      if (dent->d_type == DT_REG) {
+      if (dent->d_type == DT_REG || dent->d_type == DT_LNK) {
         char realpath[PATH_MAX] = {0};
         if (!createRealpath(&realpath, tok, dent->d_name)) {
           goto err;
         }
-
         if (isRelevantFiletype(&realpath)) {
           // printf("%s\n", dent->d_name);
           Entry *e = entryCreate(allocator, realpath);
