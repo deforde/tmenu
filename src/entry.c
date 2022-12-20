@@ -101,7 +101,8 @@ EntryList entrylistInit(const Allocator *allocator) {
 
     while (n--) {
       struct dirent *dent = namelist[n];
-      if (dent->d_type == DT_REG || dent->d_type == DT_LNK) {
+      if ((dent->d_type == DT_REG || dent->d_type == DT_LNK) &&
+          strcmp(dent->d_name, "tmenu") != 0) {
         char realpath[PATH_MAX] = {0};
         if (!createRealpath(&realpath, tok, dent->d_name)) {
           goto err;
