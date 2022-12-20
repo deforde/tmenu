@@ -18,6 +18,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+static bool createRealpath(char (*realpath)[PATH_MAX], const char *branch,
+                           const char *leaf);
+
 Entry *entryCreate(const Allocator *allocator, const char *s) {
   size_t nm_len = strlen(s) + 1;
   size_t sz = sizeof(Entry) + nm_len;
@@ -36,6 +39,31 @@ Entry *entryCreate(const Allocator *allocator, const char *s) {
 }
 
 void entryDestroy(const Allocator *allocator, Entry *e) { allocator->free(e); }
+
+bool createRealpath(char (*realpath)[PATH_MAX], const char *branch,
+                    const char *leaf) {
+  int r = snprintf(*realpath, sizeof(*realpath), "%s/%s", branch, leaf);
+  if (r == -1) {
+    perror("snprintf");
+    return false;
+  }
+  if (r >= (int)sizeof(*realpath)) {
+    printf("snprintf: destination buffer too small (actual size: %zu, "
+           "expected: %i)\n",
+           sizeof(*realpath), r);
+    return false;
+  }
+  return true;
+}
+
+bool isRelevantFiletype(char (*realpath)[PATH_MAX]) {
+  struct stat sb;
+  if (stat(*realpath, &sb) == -1) {
+    perror("stat");
+    return false; // TODO: Error here?
+  }
+  return sb.st_mode & S_IXUSR;
+}
 
 EntryList entrylistInit(const Allocator *allocator) {
   EntryList entries = {
@@ -67,24 +95,11 @@ EntryList entrylistInit(const Allocator *allocator) {
       struct dirent *dent = namelist[n];
       if (dent->d_type == DT_REG) {
         char realpath[PATH_MAX] = {0};
-        int r =
-            snprintf(realpath, sizeof(realpath), "%s/%s", tok, dent->d_name);
-        if (r == -1) {
-          perror("snprintf");
-          goto err;
-        } else if (r >= (int)sizeof(realpath)) {
-          printf("snprintf: destination buffer too small (actual size: %zu, "
-                 "expected: %i)\n",
-                 sizeof(realpath), r);
+        if (!createRealpath(&realpath, tok, dent->d_name)) {
           goto err;
         }
 
-        struct stat sb;
-        if (stat(realpath, &sb) == -1) {
-          perror("stat");
-          goto err;
-        }
-        if (sb.st_mode & S_IXUSR) {
+        if (isRelevantFiletype(&realpath)) {
           // printf("%s\n", dent->d_name);
           Entry *e = entryCreate(allocator, realpath);
           if (e == NULL) {
