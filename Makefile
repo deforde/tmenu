@@ -60,4 +60,10 @@ test-compdb:
 valgrind: debug
 	valgrind ./$(TARGET)
 
+install: all
+	cp build/tmenu $$HOME/.local/bin/tmenu
+
+dev-install: all
+	ln -s -f $(realpath build/tmenu) $$HOME/.local/bin/tmenu
+
 -include $(DEPS)
