@@ -17,6 +17,7 @@ To install, run:
 make install
 ```
 `tmenu` will be installed to `$HOME/.local/bin`.
+
 To create a keymap to `tmenu` in `zsh`, add something along the lines of the following to your `.zshrc`:
 ```
 bindkey -s '^u' 'tmenu^M'
