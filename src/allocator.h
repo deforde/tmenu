@@ -11,16 +11,22 @@
 
 #include <stddef.h>
 
+typedef void (*AllocInitFn)(void);
+typedef void (*AllocDestroyFn)(void);
 typedef void *(*AllocFn)(size_t);
 typedef void (*FreeFn)(void *);
 
 typedef struct Allocator {
+  AllocInitFn init;
+  AllocDestroyFn destroy;
   AllocFn alloc;
   FreeFn free;
 } Allocator;
 
-extern Allocator *debug_allocator;
+extern Allocator *allocator;
 
-#define DBG_ALLOCATOR debug_allocator
+#define ALLOCATOR allocator
+#define ALLOCATOR_INIT allocator->init
+#define ALLOCATOR_DESTROY allocator->destroy
 
 #endif // ALLOCATOR_H

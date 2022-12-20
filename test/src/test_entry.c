@@ -13,23 +13,25 @@
 #include "entry.h"
 
 void testEntryBasic(void) {
+  ALLOCATOR_INIT();
+
   EntryList entries = {
       .head = NULL,
       .tail = NULL,
   };
 
-  Entry *e = entryCreate(DBG_ALLOCATOR, "test_name");
+  Entry *e = entryCreate(ALLOCATOR, "test_name");
   TEST_ASSERT_NOT_NULL(e);
   TEST_ASSERT(entrylistAppendUnique(&entries, e));
   TEST_ASSERT_EQUAL_PTR(entries.head, entries.tail);
   TEST_ASSERT_EQUAL_STRING(entries.head->name, "test_name");
-  entrylistDestroy(DBG_ALLOCATOR, &entries);
+  entrylistDestroy(ALLOCATOR, &entries);
 
-  e = entryCreate(DBG_ALLOCATOR, "test_name_1");
+  e = entryCreate(ALLOCATOR, "test_name_1");
   TEST_ASSERT_NOT_NULL(e);
   TEST_ASSERT(entrylistAppendUnique(&entries, e));
 
-  e = entryCreate(DBG_ALLOCATOR, "test_name_2");
+  e = entryCreate(ALLOCATOR, "test_name_2");
   Entry *tmp = e;
   TEST_ASSERT_NOT_NULL(e);
   TEST_ASSERT(entrylistAppendUnique(&entries, e));
@@ -39,16 +41,16 @@ void testEntryBasic(void) {
   TEST_ASSERT_EQUAL_PTR(entries.head->next, entries.tail);
   TEST_ASSERT_EQUAL_PTR(entries.tail->prev, entries.head);
 
-  e = entryCreate(DBG_ALLOCATOR, "test_name_3");
+  e = entryCreate(ALLOCATOR, "test_name_3");
   TEST_ASSERT_NOT_NULL(e);
   TEST_ASSERT(entrylistAppendUnique(&entries, e));
   TEST_ASSERT_EQUAL_STRING(entries.tail->name, "test_name_3");
   TEST_ASSERT_EQUAL_PTR(entries.head->next->next, entries.tail);
 
-  e = entryCreate(DBG_ALLOCATOR, "test_name_2");
+  e = entryCreate(ALLOCATOR, "test_name_2");
   TEST_ASSERT_NOT_NULL(e);
   TEST_ASSERT(!entrylistAppendUnique(&entries, e));
-  entryDestroy(DBG_ALLOCATOR, e);
+  entryDestroy(ALLOCATOR, e);
 
   entrylistRemove(&entries, tmp);
   TEST_ASSERT_NOT_EQUAL(entries.head, entries.tail);
@@ -57,22 +59,22 @@ void testEntryBasic(void) {
   TEST_ASSERT_EQUAL_PTR(entries.head->next, entries.tail);
   TEST_ASSERT_EQUAL_PTR(entries.tail->prev, entries.head);
   entrylistRemove(&entries, tmp);
-  entryDestroy(DBG_ALLOCATOR, tmp);
+  entryDestroy(ALLOCATOR, tmp);
 
-  entrylistDestroy(DBG_ALLOCATOR, &entries);
+  entrylistDestroy(ALLOCATOR, &entries);
   TEST_ASSERT_EQUAL_PTR(entries.head, NULL);
   TEST_ASSERT_EQUAL_PTR(entries.tail, NULL);
 
   Entry *arr[] = {NULL, NULL, NULL};
-  arr[0] = entryCreate(DBG_ALLOCATOR, "test_name_1");
+  arr[0] = entryCreate(ALLOCATOR, "test_name_1");
   TEST_ASSERT_NOT_NULL(arr[0]);
   TEST_ASSERT(entrylistAppendUnique(&entries, arr[0]));
 
-  arr[1] = entryCreate(DBG_ALLOCATOR, "test_name_2");
+  arr[1] = entryCreate(ALLOCATOR, "test_name_2");
   TEST_ASSERT_NOT_NULL(arr[1]);
   TEST_ASSERT(entrylistAppendUnique(&entries, arr[1]));
 
-  arr[2] = entryCreate(DBG_ALLOCATOR, "test_name_3");
+  arr[2] = entryCreate(ALLOCATOR, "test_name_3");
   TEST_ASSERT_NOT_NULL(arr[2]);
   TEST_ASSERT(entrylistAppendUnique(&entries, arr[2]));
 
@@ -102,5 +104,7 @@ void testEntryBasic(void) {
   entrylistExtend(&entries, fout);
   TEST_ASSERT_EQUAL_STRING(entries.tail->name, "test_name_2");
 
-  entrylistDestroy(DBG_ALLOCATOR, &entries);
+  entrylistDestroy(ALLOCATOR, &entries);
+
+  ALLOCATOR_DESTROY();
 }

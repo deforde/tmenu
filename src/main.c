@@ -72,10 +72,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  ALLOCATOR_INIT();
+
   char efilter[PATH_MAX] = {0};
   size_t efilter_idx = 0;
 
-  EntryList entries = entrylistInit(DBG_ALLOCATOR);
+  EntryList entries = entrylistInit(ALLOCATOR);
   EntryList fout = {
       .head = NULL,
       .tail = NULL,
@@ -158,7 +160,9 @@ end:
   entrylistExtend(&entries, fout);
   fout.head = NULL;
   fout.tail = NULL;
-  entrylistDestroy(DBG_ALLOCATOR, &entries);
+  entrylistDestroy(ALLOCATOR, &entries);
+
+  ALLOCATOR_DESTROY();
 
   exit(EXIT_SUCCESS);
 }
