@@ -11,5 +11,5 @@ jobs:
     - uses: actions/checkout@v2
     - name: install ncurses
       run: sudo apt-get install -y libncurses-dev
-    - name: build
-      run: make
+    - name: test
+      run: make test
