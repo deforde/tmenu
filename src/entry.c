@@ -20,6 +20,7 @@
 
 static bool createRealpath(char (*realpath)[PATH_MAX], const char *branch,
                            const char *leaf);
+static bool isRelevantFiletype(char (*realpath)[PATH_MAX]);
 
 Entry *entryCreate(const Allocator *allocator, const char *s) {
   size_t nm_len = strlen(s) + 1;
