@@ -28,14 +28,15 @@ static void usage(void) {
 }
 
 static ITEM **buildItemList(EntryList entries) {
-  ITEM **items = calloc(entries.len + 1, sizeof(ITEM *));
+  ITEM **items = calloc(entries.len + 2, sizeof(ITEM *));
   size_t i = 0;
   for (Entry *e = entries.head; e; e = e->next) {
     items[i] = new_item(e->name, NULL);
     set_item_userptr(items[i], e);
     i++;
   }
-  items[i] = NULL;
+  items[i] = new_item(" ", NULL);
+  items[i + 1] = NULL;
   return items;
 }
 

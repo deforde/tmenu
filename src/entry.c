@@ -132,7 +132,6 @@ bool entrylistAppendUnique(EntryList *l, Entry *e) {
     }
   }
   entrylistAppend(l, e);
-  l->len++;
   return true;
 }
 
