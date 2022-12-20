@@ -36,8 +36,7 @@ void *stdAlloc(size_t sz) { return calloc(1, sz); }
 
 #else
 
-#define ARENA_SIZE (10 * 1024 * 1024)
-#define ARENA_GROWTH_RATE 2
+#define ARENA_SIZE 1024ULL
 #define ARENA_ALIGN (2 * sizeof(void *))
 
 typedef struct {
@@ -61,8 +60,12 @@ Allocator *allocator = &(Allocator){
 static ArenaAllocator arena = {0};
 
 void arenaInit(void) {
-  arena.buf = calloc(1, ARENA_SIZE);
-  arena.buf_len = ARENA_SIZE;
+  size_t sz = ARENA_SIZE;
+  if (sz % ARENA_ALIGN != 0) {
+    sz = (sz / ARENA_ALIGN + 1) * ARENA_ALIGN;
+  }
+  arena.buf = calloc(1, sz);
+  arena.buf_len = sz;
   arena.offset = 0;
 }
 
@@ -80,15 +83,9 @@ void *arenaAlloc(size_t sz) {
   }
 
   if (sz > (arena.buf_len - arena.offset)) {
-    void *tmp = realloc(arena.buf, arena.buf_len * ARENA_GROWTH_RATE);
-    assert(tmp); // TODO: proper error handling
-    if (!tmp) {
-      return NULL;
-    }
-    arena.buf = tmp;
-    arena.buf_len *= ARENA_GROWTH_RATE;
-    memset(&arena.buf[arena.offset], 0, arena.buf_len - arena.offset);
+    return NULL;
   }
+
   void *mem = &arena.buf[arena.offset];
   assert((uintptr_t)mem % 16 == 0);
   arena.offset += sz;

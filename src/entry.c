@@ -66,7 +66,7 @@ bool isRelevantFiletype(char (*realpath)[PATH_MAX]) {
   if (sb.st_mode & S_IFMT) {
     memset(&sb, 0, sizeof(sb));
     if (stat(*realpath, &sb) == -1) {
-      perror("stat");
+      // perror("stat");
       return false; // TODO: Error here?
     }
   }
