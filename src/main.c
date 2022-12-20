@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  char filter[PATH_MAX] = {0};
-  size_t filter_idx = 0;
+  char efilter[PATH_MAX] = {0};
+  size_t efilter_idx = 0;
 
   EntryList entries = entrylistInit(DBG_ALLOCATOR);
   EntryList fout = {
@@ -123,21 +123,21 @@ int main(int argc, char *argv[]) {
       select = item_userptr(current_item(menu));
       goto end;
     case KEY_BACKSPACE:
-      if (filter_idx > 0) {
-        filter[--filter_idx] = 0;
-        move(0, filter_idx);
+      if (efilter_idx > 0) {
+        efilter[--efilter_idx] = 0;
+        move(0, efilter_idx);
         clrtoeol();
         entrylistExtend(&entries, fout);
         entrylistClear(&fout);
-        entrylistFilter(&entries, &fout, filter);
+        entrylistFilter(&entries, &fout, efilter);
         updateItemList(entries, &items, menu);
       }
       break;
     default:
       if (isgraph(c)) {
         addch(c);
-        filter[filter_idx++] = (char)c;
-        entrylistFilter(&entries, &fout, filter);
+        efilter[efilter_idx++] = (char)c;
+        entrylistFilter(&entries, &fout, efilter);
         updateItemList(entries, &items, menu);
       }
       break;

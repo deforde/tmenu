@@ -143,6 +143,9 @@ void entrylistAppend(EntryList *l, Entry *e) {
 }
 
 void entrylistExtend(EntryList *l, EntryList m) {
+  if (!m.head || !m.tail) {
+    return;
+  }
   entrylistAppend(l, m.head);
   l->tail = m.tail;
   l->len += m.len - 1;
