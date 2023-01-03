@@ -23,7 +23,9 @@ bindkey -s '^u' 'tmenu^M'
 - Add installation recipe to build script and update readme accordingly.
 - Switch from GeneralPurposeAllocator to something more performant.
 - Tidy up build script.
-- Move ncurse code out of main.zig.
+- Move ncurses code out of main.zig.
+- Handle C ffi return codes correctly.
+- Abstract away the need to manually allocate entry struct instances (similar to what was done for the test code).
 - Possible features:
     - Fuzzy filtering.
     - vi bindings.
