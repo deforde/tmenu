@@ -3,6 +3,8 @@ A dmenu-inspired dynamic terminal-based application menu.
 
 [![build](https://github.com/deforde/tmenu/actions/workflows/build.yml/badge.svg)](https://github.com/deforde/tmenu/actions/workflows/build.yml)
 [![tests](https://github.com/deforde/tmenu/actions/workflows/test.yml/badge.svg)](https://github.com/deforde/tmenu/actions/workflows/test.yml)
+
+
 ![demo](https://user-images.githubusercontent.com/7503504/210374311-553c63ab-429b-426c-a333-2be80771158a.gif)
 
 
