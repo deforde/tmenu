@@ -9,7 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: install ncurses
-      run: sudo apt-get install -y libncurses-dev
-    - name: test
-      run: make test
+    - name: install deps
+      run: |
+        sudo apt-get install -y libncurses-dev && \
+        mkdir $HOME/ziglang && \
+        curl -L https://ziglang.org/builds/zig-linux-x86_64-0.11.0-dev.324+f61c5f3f5.tar.xz | \
+        tar -xJ --strip-components=1 -C $HOME/ziglang && \
+        sudo ln $HOME/ziglang/zig /usr/local/bin/zig
+    - name: build
+      run: zig build test
