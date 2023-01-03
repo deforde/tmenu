@@ -1,5 +1,3 @@
-build/
-ncurses/
-ncurses-src/
+zig-cache/
+zig-out/
 .cache/
-Unity/

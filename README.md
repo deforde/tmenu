@@ -4,28 +4,24 @@ A dmenu-inspired dynamic terminal-based application menu.
 [![build](https://github.com/deforde/tmenu/actions/workflows/build.yml/badge.svg)](https://github.com/deforde/tmenu/actions/workflows/build.yml)
 [![tests](https://github.com/deforde/tmenu/actions/workflows/test.yml/badge.svg)](https://github.com/deforde/tmenu/actions/workflows/test.yml)
 
-![demo](https://user-images.githubusercontent.com/7503504/208658056-fa7e3ad5-4ecb-4301-bc17-9063a7a94c82.gif)
-
 
 ## Usage
 To build `tmenu`, simply run:
 ```
-sudo apt-get install libncurses-dev
-make
+zig build
 ```
-To install, run:
-```
-make install
-```
-`tmenu` will be installed to `$HOME/.local/bin`.
 
-To create a keymap to `tmenu` in `zsh`, add something along the lines of the following to your `.zshrc`:
+With `tmenu` on your `PATH`, to create a keymap to `tmenu` in `zsh`, add something along the lines of the following to your `.zshrc`:
 ```
 bindkey -s '^u' 'tmenu^M'
 ```
 
 ### TODO
-- Implement (and add tests for) arena allocator.
+- Add gif to demo `tmenu` usage.
+- Add installation recipe to build script and update readme accordingly.
+- Fix CI build and tests.
+- Switch from GeneralPurposeAllocator to something more performant.
+- Tidy up build script.
 - Possible features:
     - Fuzzy filtering.
     - vi bindings.
