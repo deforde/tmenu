@@ -2,13 +2,15 @@ const std = @import("std");
 const Entry = @import("entry").Entry;
 const EntryList = @import("entry").EntryList;
 
-test "entry_create_destroy_1" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer std.debug.assert(!gpa.deinit());
+fn createEntry(allocator: std.mem.Allocator, name: []const u8) anyerror!*Entry {
+    var e = try allocator.create(Entry);
+    e.* = try Entry.create(allocator, name);
+    return e;
+}
 
-    var e = try Entry.create(allocator, "test");
-    defer e.destroy(allocator);
+fn destroyEntry(e: *Entry, allocator: std.mem.Allocator) void {
+    e.destroy(allocator);
+    allocator.destroy(e);
 }
 
 test "entry_create_destroy_2" {
@@ -16,11 +18,8 @@ test "entry_create_destroy_2" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e = try allocator.create(Entry);
-    defer allocator.destroy(e);
-
-    e.* = try Entry.create(allocator, "test");
-    defer e.destroy(allocator);
+    var e = try createEntry(allocator, "test");
+    defer destroyEntry(e, allocator);
 }
 
 test "entry_content_1" {
@@ -28,8 +27,8 @@ test "entry_content_1" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e = try Entry.create(allocator, "test");
-    defer e.destroy(allocator);
+    var e = try createEntry(allocator, "test");
+    defer destroyEntry(e, allocator);
 
     try std.testing.expect(e.path != null);
     try std.testing.expect(e.name != null);
@@ -42,8 +41,8 @@ test "entry_content_2" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e = try Entry.create(allocator, "/path/to/test");
-    defer e.destroy(allocator);
+    var e = try createEntry(allocator, "/path/to/test");
+    defer destroyEntry(e, allocator);
 
     try std.testing.expect(e.path != null);
     try std.testing.expect(e.name != null);
@@ -56,14 +55,14 @@ test "entry_list_append" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try Entry.create(allocator, "/path/to/test1");
+    var e1 = try createEntry(allocator, "/path/to/test1");
 
-    var e2 = try Entry.create(allocator, "/other/path/to/test2");
+    var e2 = try createEntry(allocator, "/other/path/to/test2");
 
     var l = EntryList{};
     defer l.destroy(allocator);
 
-    l.append(&e1);
+    l.append(e1);
 
     try std.testing.expectEqual(@as(usize, 1), l.len);
     try std.testing.expect(l.head != null);
@@ -73,7 +72,7 @@ test "entry_list_append" {
     try std.testing.expectEqualStrings("/path/to/test1", l.head.?.path.?);
     try std.testing.expectEqualStrings("test1", l.head.?.name.?);
 
-    l.append(&e2);
+    l.append(e2);
 
     try std.testing.expectEqual(@as(usize, 2), l.len);
     try std.testing.expect(l.head != null);
@@ -94,16 +93,16 @@ test "entry_list_append_remove_1" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try Entry.create(allocator, "/path/to/test1");
-    defer e1.destroy(allocator);
+    var e1 = try createEntry(allocator, "/path/to/test1");
+    defer destroyEntry(e1, allocator);
 
-    var e2 = try Entry.create(allocator, "/other/path/to/test2");
-    defer e2.destroy(allocator);
+    var e2 = try createEntry(allocator, "/other/path/to/test2");
+    defer destroyEntry(e2, allocator);
 
     var l = EntryList{};
     defer l.destroy(allocator);
 
-    l.append(&e1);
+    l.append(e1);
 
     try std.testing.expectEqual(@as(usize, 1), l.len);
     try std.testing.expect(l.head != null);
@@ -113,7 +112,7 @@ test "entry_list_append_remove_1" {
     try std.testing.expectEqualStrings("/path/to/test1", l.head.?.path.?);
     try std.testing.expectEqualStrings("test1", l.head.?.name.?);
 
-    l.append(&e2);
+    l.append(e2);
 
     try std.testing.expectEqual(@as(usize, 2), l.len);
     try std.testing.expect(l.head != null);
@@ -128,7 +127,7 @@ test "entry_list_append_remove_1" {
     try std.testing.expectEqualStrings("/other/path/to/test2", l.tail.?.path.?);
     try std.testing.expectEqualStrings("test2", l.tail.?.name.?);
 
-    l.remove(&e2);
+    l.remove(e2);
 
     try std.testing.expectEqual(@as(usize, 1), l.len);
     try std.testing.expect(l.head != null);
@@ -138,7 +137,7 @@ test "entry_list_append_remove_1" {
     try std.testing.expectEqualStrings("/path/to/test1", l.head.?.path.?);
     try std.testing.expectEqualStrings("test1", l.head.?.name.?);
 
-    l.remove(&e1);
+    l.remove(e1);
 
     try std.testing.expectEqual(@as(usize, 0), l.len);
     try std.testing.expect(l.head == null);
@@ -150,16 +149,16 @@ test "entry_list_append_remove_2" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try Entry.create(allocator, "/path/to/test1");
-    defer e1.destroy(allocator);
+    var e1 = try createEntry(allocator, "/path/to/test1");
+    defer destroyEntry(e1, allocator);
 
-    var e2 = try Entry.create(allocator, "/other/path/to/test2");
-    defer e2.destroy(allocator);
+    var e2 = try createEntry(allocator, "/other/path/to/test2");
+    defer destroyEntry(e2, allocator);
 
     var l = EntryList{};
     defer l.destroy(allocator);
 
-    l.append(&e1);
+    l.append(e1);
 
     try std.testing.expectEqual(@as(usize, 1), l.len);
     try std.testing.expect(l.head != null);
@@ -169,7 +168,7 @@ test "entry_list_append_remove_2" {
     try std.testing.expectEqualStrings("/path/to/test1", l.head.?.path.?);
     try std.testing.expectEqualStrings("test1", l.head.?.name.?);
 
-    l.append(&e2);
+    l.append(e2);
 
     try std.testing.expectEqual(@as(usize, 2), l.len);
     try std.testing.expect(l.head != null);
@@ -184,7 +183,7 @@ test "entry_list_append_remove_2" {
     try std.testing.expectEqualStrings("/other/path/to/test2", l.tail.?.path.?);
     try std.testing.expectEqualStrings("test2", l.tail.?.name.?);
 
-    l.remove(&e1);
+    l.remove(e1);
 
     try std.testing.expectEqual(@as(usize, 1), l.len);
     try std.testing.expect(l.head != null);
@@ -194,7 +193,7 @@ test "entry_list_append_remove_2" {
     try std.testing.expectEqualStrings("/other/path/to/test2", l.tail.?.path.?);
     try std.testing.expectEqualStrings("test2", l.tail.?.name.?);
 
-    l.remove(&e2);
+    l.remove(e2);
 
     try std.testing.expectEqual(@as(usize, 0), l.len);
     try std.testing.expect(l.head == null);
@@ -206,17 +205,17 @@ test "entry_list_append_remove_3" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try Entry.create(allocator, "/path/to/test1");
+    var e1 = try createEntry(allocator, "/path/to/test1");
 
-    var e2 = try Entry.create(allocator, "/other/path/to/test2");
-    defer e2.destroy(allocator);
+    var e2 = try createEntry(allocator, "/other/path/to/test2");
+    defer destroyEntry(e2, allocator);
 
-    var e3 = try Entry.create(allocator, "/yet/another/path/to/test3");
+    var e3 = try createEntry(allocator, "/yet/another/path/to/test3");
 
     var l = EntryList{};
     defer l.destroy(allocator);
 
-    l.append(&e1);
+    l.append(e1);
 
     try std.testing.expectEqual(@as(usize, 1), l.len);
     try std.testing.expect(l.head != null);
@@ -226,7 +225,7 @@ test "entry_list_append_remove_3" {
     try std.testing.expectEqualStrings("/path/to/test1", l.head.?.path.?);
     try std.testing.expectEqualStrings("test1", l.head.?.name.?);
 
-    l.append(&e2);
+    l.append(e2);
 
     try std.testing.expectEqual(@as(usize, 2), l.len);
     try std.testing.expect(l.head != null);
@@ -241,7 +240,7 @@ test "entry_list_append_remove_3" {
     try std.testing.expectEqualStrings("/other/path/to/test2", l.tail.?.path.?);
     try std.testing.expectEqualStrings("test2", l.tail.?.name.?);
 
-    l.append(&e3);
+    l.append(e3);
 
     try std.testing.expectEqual(@as(usize, 3), l.len);
     try std.testing.expect(l.head != null);
@@ -256,7 +255,7 @@ test "entry_list_append_remove_3" {
     try std.testing.expectEqualStrings("/yet/another/path/to/test3", l.tail.?.path.?);
     try std.testing.expectEqualStrings("test3", l.tail.?.name.?);
 
-    l.remove(&e2);
+    l.remove(e2);
 
     try std.testing.expectEqual(@as(usize, 2), l.len);
     try std.testing.expect(l.head != null);
@@ -277,15 +276,15 @@ test "entry_list_append_unique" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try Entry.create(allocator, "/path/to/test1");
+    var e1 = try createEntry(allocator, "/path/to/test1");
 
-    var e2 = try Entry.create(allocator, "/other/path/to/test1");
-    defer e2.destroy(allocator);
+    var e2 = try createEntry(allocator, "/other/path/to/test1");
+    defer destroyEntry(e2, allocator);
 
     var l = EntryList{};
     defer l.destroy(allocator);
 
-    var res = l.appendUnique(&e1);
+    var res = l.appendUnique(e1);
 
     try std.testing.expect(res);
     try std.testing.expectEqual(@as(usize, 1), l.len);
@@ -296,7 +295,7 @@ test "entry_list_append_unique" {
     try std.testing.expectEqualStrings("/path/to/test1", l.head.?.path.?);
     try std.testing.expectEqualStrings("test1", l.head.?.name.?);
 
-    res = l.appendUnique(&e2);
+    res = l.appendUnique(e2);
 
     try std.testing.expect(!res);
     try std.testing.expectEqual(@as(usize, 1), l.len);
@@ -313,17 +312,17 @@ test "entry_list_extend" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try Entry.create(allocator, "/path/to/test1");
-    var e2 = try Entry.create(allocator, "/other/path/to/test2");
-    var e3 = try Entry.create(allocator, "/yet/another/path/to/test3");
-    var e4 = try Entry.create(allocator, "/running/out/of/ideas/test4");
+    var e1 = try createEntry(allocator, "/path/to/test1");
+    var e2 = try createEntry(allocator, "/other/path/to/test2");
+    var e3 = try createEntry(allocator, "/yet/another/path/to/test3");
+    var e4 = try createEntry(allocator, "/running/out/of/ideas/test4");
 
     var l = EntryList{};
     defer l.destroy(allocator);
 
     var m = EntryList{};
 
-    l.append(&e1);
+    l.append(e1);
     try std.testing.expectEqual(@as(usize, 1), l.len);
     try std.testing.expect(l.head != null);
     try std.testing.expect(l.head.?.path != null);
@@ -332,7 +331,7 @@ test "entry_list_extend" {
     try std.testing.expectEqualStrings("/path/to/test1", l.head.?.path.?);
     try std.testing.expectEqualStrings("test1", l.head.?.name.?);
 
-    l.append(&e2);
+    l.append(e2);
     try std.testing.expectEqual(@as(usize, 2), l.len);
     try std.testing.expect(l.head != null);
     try std.testing.expect(l.head.?.path != null);
@@ -346,8 +345,8 @@ test "entry_list_extend" {
     try std.testing.expectEqualStrings("/other/path/to/test2", l.tail.?.path.?);
     try std.testing.expectEqualStrings("test2", l.tail.?.name.?);
 
-    m.append(&e3);
-    m.append(&e4);
+    m.append(e3);
+    m.append(e4);
 
     l.extend(m);
     try std.testing.expectEqual(@as(usize, 4), l.len);
@@ -369,18 +368,18 @@ test "entry_filter" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try Entry.create(allocator, "/path/to/test1");
-    var e2 = try Entry.create(allocator, "/other/path/to/none2");
-    var e3 = try Entry.create(allocator, "/yet/another/path/to/test3");
-    var e4 = try Entry.create(allocator, "/running/out/of/ideas/none4");
+    var e1 = try createEntry(allocator, "/path/to/test1");
+    var e2 = try createEntry(allocator, "/other/path/to/none2");
+    var e3 = try createEntry(allocator, "/yet/another/path/to/test3");
+    var e4 = try createEntry(allocator, "/running/out/of/ideas/none4");
 
     var l = EntryList{};
     defer l.destroy(allocator);
 
-    _ = l.appendUnique(&e1);
-    _ = l.appendUnique(&e2);
-    _ = l.appendUnique(&e3);
-    _ = l.appendUnique(&e4);
+    _ = l.appendUnique(e1);
+    _ = l.appendUnique(e2);
+    _ = l.appendUnique(e3);
+    _ = l.appendUnique(e4);
 
     var fout = EntryList{};
 

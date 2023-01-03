@@ -22,6 +22,7 @@ bindkey -s '^u' 'tmenu^M'
 - Fix CI build and tests.
 - Switch from GeneralPurposeAllocator to something more performant.
 - Tidy up build script.
+- Move ncurse code out of main.zig.
 - Possible features:
     - Fuzzy filtering.
     - vi bindings.
