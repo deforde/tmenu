@@ -21,7 +21,6 @@ bindkey -s '^u' 'tmenu^M'
 ```
 
 ### TODO
-- Switch from GeneralPurposeAllocator to something more performant.
 - Handle C ffi return codes correctly.
 - Possible features:
     - Fuzzy filtering.
