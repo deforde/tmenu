@@ -14,6 +14,7 @@ const Menu = struct {
     ncmenu: *c.MENU,
     ncwin: *c.WINDOW,
     items: []?*c.ITEM,
+    allocator: *const Allocator,
 
     fn buildItemList(entries: EntryList, allocator: Allocator) anyerror![]?*c.ITEM {
         var items = try allocator.alloc(?*c.ITEM, entries.len + 2);
@@ -36,8 +37,8 @@ const Menu = struct {
         allocator.free(items);
     }
 
-    pub fn create(allocator: Allocator, entries: EntryList) anyerror!Menu {
-        var items = try buildItemList(entries, allocator);
+    pub fn create(allocator: *const Allocator, entries: EntryList) anyerror!Menu {
+        var items = try buildItemList(entries, allocator.*);
 
         _ = c.initscr();
         _ = c.cbreak();
@@ -67,14 +68,15 @@ const Menu = struct {
             .ncmenu = ncmenu,
             .ncwin = ncwin,
             .items = items,
+            .allocator = allocator,
         };
     }
 
-    pub fn destroy(self: *Menu, allocator: Allocator) void {
+    pub fn destroy(self: *Menu) void {
         _ = c.unpost_menu(self.ncmenu);
         _ = c.free_menu(self.ncmenu);
         _ = c.endwin();
-        defer destroyItemList(self.items, allocator);
+        defer destroyItemList(self.items, self.allocator.*);
     }
 
     pub fn addChar(self: *Menu, ch: c_int) void {
@@ -91,11 +93,11 @@ const Menu = struct {
         }
     }
 
-    pub fn updateItemList(self: *Menu, allocator: Allocator, entries: EntryList) anyerror!void {
-        var new_items = try buildItemList(entries, allocator);
+    pub fn updateItemList(self: *Menu, entries: EntryList) anyerror!void {
+        var new_items = try buildItemList(entries, self.allocator.*);
         _ = c.unpost_menu(self.ncmenu);
         _ = c.set_menu_items(self.ncmenu, @ptrCast([*c][*c]c.ITEM, &new_items[0]));
-        destroyItemList(self.items, allocator);
+        destroyItemList(self.items, self.allocator.*);
         self.items = new_items;
         _ = c.post_menu(self.ncmenu);
     }
@@ -131,8 +133,8 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) anyerror!?*Entry {
     var efilter = [_]u8{0} ** std.os.PATH_MAX;
     var efilter_idx: usize = 0;
 
-    var menu = try Menu.create(allocator, entries.*);
-    defer menu.destroy(allocator);
+    var menu = try Menu.create(&allocator, entries.*);
+    defer menu.destroy();
 
     var ch: c_int = 0;
     while (true) {
@@ -155,7 +157,7 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) anyerror!?*Entry {
                     fout.clear();
                     entries.filter(&fout, efilter[0..efilter_idx]);
                     menu.deleteChar();
-                    try menu.updateItemList(allocator, entries.*);
+                    try menu.updateItemList(entries.*);
                 }
             },
             c.KEY_F(1) => {
@@ -167,7 +169,7 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) anyerror!?*Entry {
                     efilter_idx += 1;
                     entries.filter(&fout, efilter[0..efilter_idx]);
                     menu.addChar(ch);
-                    try menu.updateItemList(allocator, entries.*);
+                    try menu.updateItemList(entries.*);
                 }
             },
         }

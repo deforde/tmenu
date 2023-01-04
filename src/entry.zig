@@ -6,9 +6,11 @@ pub const Entry = struct {
     next: ?*Entry = null,
     name: ?[:0]u8 = null,
     path: ?[:0]u8 = null,
+    allocator: *const Allocator,
 
-    pub fn create(allocator: Allocator, s: []const u8) anyerror!Entry {
-        var e = Entry{};
+    pub fn create(allocator: *const Allocator, s: []const u8) anyerror!*Entry {
+        var e = try allocator.create(Entry);
+        e.* = Entry{ .allocator = allocator };
         e.path = try allocator.allocSentinel(u8, s.len, 0);
         std.mem.copy(u8, e.path.?, s);
         const pos = std.mem.lastIndexOf(u8, e.path.?, "/");
@@ -20,10 +22,11 @@ pub const Entry = struct {
         return e;
     }
 
-    pub fn destroy(self: *Entry, allocator: Allocator) void {
+    pub fn destroy(self: *Entry) void {
         if (self.path != null) {
-            allocator.free(self.path.?);
+            self.allocator.free(self.path.?);
         }
+        self.allocator.destroy(self);
     }
 };
 
@@ -70,12 +73,11 @@ pub const EntryList = struct {
         self.len = 0;
     }
 
-    pub fn destroy(self: *EntryList, allocator: Allocator) void {
+    pub fn destroy(self: *EntryList) void {
         var e = self.head;
         while (e != null) {
             const tmp = e.?.next;
-            e.?.destroy(allocator);
-            allocator.destroy(e.?);
+            e.?.destroy();
             e = tmp;
         }
         self.clear();
@@ -126,7 +128,7 @@ pub const EntryList = struct {
         }
     }
 
-    pub fn create(allocator: Allocator) anyerror!EntryList {
+    pub fn create(allocator: *const Allocator) anyerror!EntryList {
         var l = EntryList{};
 
         const env_path = std.os.getenv("PATH").?;
@@ -138,17 +140,15 @@ pub const EntryList = struct {
             var it = dir.iterate();
             while (try it.next()) |dir_entry| {
                 if ((dir_entry.kind == std.fs.File.Kind.File or dir_entry.kind == std.fs.File.Kind.SymLink) and !std.mem.eql(u8, dir_entry.name, "tmenu")) {
-                    const realpath = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ dir_path, dir_entry.name });
+                    const realpath = try std.fmt.allocPrint(allocator.*, "{s}/{s}", .{ dir_path, dir_entry.name });
                     defer allocator.free(realpath);
                     var file = std.fs.openFileAbsolute(realpath, .{}) catch continue;
                     defer file.close();
                     var fstat = try std.fs.File.stat(file);
                     if (fstat.mode & std.os.linux.S.IXUSR != 0) {
-                        var e = try allocator.create(Entry);
-                        e.* = try Entry.create(allocator, realpath);
+                        var e = try Entry.create(allocator, realpath);
                         if (!l.appendUnique(e)) {
-                            e.destroy(allocator);
-                            allocator.destroy(e);
+                            e.destroy();
                         }
                     }
                 }

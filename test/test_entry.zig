@@ -2,24 +2,13 @@ const std = @import("std");
 const Entry = @import("entry").Entry;
 const EntryList = @import("entry").EntryList;
 
-fn createEntry(allocator: std.mem.Allocator, name: []const u8) anyerror!*Entry {
-    var e = try allocator.create(Entry);
-    e.* = try Entry.create(allocator, name);
-    return e;
-}
-
-fn destroyEntry(e: *Entry, allocator: std.mem.Allocator) void {
-    e.destroy(allocator);
-    allocator.destroy(e);
-}
-
 test "entry_create_destroy_2" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e = try createEntry(allocator, "test");
-    defer destroyEntry(e, allocator);
+    var e = try Entry.create(&allocator, "test");
+    defer e.destroy();
 }
 
 test "entry_content_1" {
@@ -27,8 +16,8 @@ test "entry_content_1" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e = try createEntry(allocator, "test");
-    defer destroyEntry(e, allocator);
+    var e = try Entry.create(&allocator, "test");
+    defer e.destroy();
 
     try std.testing.expect(e.path != null);
     try std.testing.expect(e.name != null);
@@ -41,8 +30,8 @@ test "entry_content_2" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e = try createEntry(allocator, "/path/to/test");
-    defer destroyEntry(e, allocator);
+    var e = try Entry.create(&allocator, "/path/to/test");
+    defer e.destroy();
 
     try std.testing.expect(e.path != null);
     try std.testing.expect(e.name != null);
@@ -55,12 +44,12 @@ test "entry_list_append" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try createEntry(allocator, "/path/to/test1");
+    var e1 = try Entry.create(&allocator, "/path/to/test1");
 
-    var e2 = try createEntry(allocator, "/other/path/to/test2");
+    var e2 = try Entry.create(&allocator, "/other/path/to/test2");
 
     var l = EntryList{};
-    defer l.destroy(allocator);
+    defer l.destroy();
 
     l.append(e1);
 
@@ -93,14 +82,14 @@ test "entry_list_append_remove_1" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try createEntry(allocator, "/path/to/test1");
-    defer destroyEntry(e1, allocator);
+    var e1 = try Entry.create(&allocator, "/path/to/test1");
+    defer e1.destroy();
 
-    var e2 = try createEntry(allocator, "/other/path/to/test2");
-    defer destroyEntry(e2, allocator);
+    var e2 = try Entry.create(&allocator, "/other/path/to/test2");
+    defer e2.destroy();
 
     var l = EntryList{};
-    defer l.destroy(allocator);
+    defer l.destroy();
 
     l.append(e1);
 
@@ -149,14 +138,14 @@ test "entry_list_append_remove_2" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try createEntry(allocator, "/path/to/test1");
-    defer destroyEntry(e1, allocator);
+    var e1 = try Entry.create(&allocator, "/path/to/test1");
+    defer e1.destroy();
 
-    var e2 = try createEntry(allocator, "/other/path/to/test2");
-    defer destroyEntry(e2, allocator);
+    var e2 = try Entry.create(&allocator, "/other/path/to/test2");
+    defer e2.destroy();
 
     var l = EntryList{};
-    defer l.destroy(allocator);
+    defer l.destroy();
 
     l.append(e1);
 
@@ -205,15 +194,15 @@ test "entry_list_append_remove_3" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try createEntry(allocator, "/path/to/test1");
+    var e1 = try Entry.create(&allocator, "/path/to/test1");
 
-    var e2 = try createEntry(allocator, "/other/path/to/test2");
-    defer destroyEntry(e2, allocator);
+    var e2 = try Entry.create(&allocator, "/other/path/to/test2");
+    defer e2.destroy();
 
-    var e3 = try createEntry(allocator, "/yet/another/path/to/test3");
+    var e3 = try Entry.create(&allocator, "/yet/another/path/to/test3");
 
     var l = EntryList{};
-    defer l.destroy(allocator);
+    defer l.destroy();
 
     l.append(e1);
 
@@ -276,13 +265,13 @@ test "entry_list_append_unique" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try createEntry(allocator, "/path/to/test1");
+    var e1 = try Entry.create(&allocator, "/path/to/test1");
 
-    var e2 = try createEntry(allocator, "/other/path/to/test1");
-    defer destroyEntry(e2, allocator);
+    var e2 = try Entry.create(&allocator, "/other/path/to/test1");
+    defer e2.destroy();
 
     var l = EntryList{};
-    defer l.destroy(allocator);
+    defer l.destroy();
 
     var res = l.appendUnique(e1);
 
@@ -312,13 +301,13 @@ test "entry_list_extend" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try createEntry(allocator, "/path/to/test1");
-    var e2 = try createEntry(allocator, "/other/path/to/test2");
-    var e3 = try createEntry(allocator, "/yet/another/path/to/test3");
-    var e4 = try createEntry(allocator, "/running/out/of/ideas/test4");
+    var e1 = try Entry.create(&allocator, "/path/to/test1");
+    var e2 = try Entry.create(&allocator, "/other/path/to/test2");
+    var e3 = try Entry.create(&allocator, "/yet/another/path/to/test3");
+    var e4 = try Entry.create(&allocator, "/running/out/of/ideas/test4");
 
     var l = EntryList{};
-    defer l.destroy(allocator);
+    defer l.destroy();
 
     var m = EntryList{};
 
@@ -368,13 +357,13 @@ test "entry_filter" {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var e1 = try createEntry(allocator, "/path/to/test1");
-    var e2 = try createEntry(allocator, "/other/path/to/none2");
-    var e3 = try createEntry(allocator, "/yet/another/path/to/test3");
-    var e4 = try createEntry(allocator, "/running/out/of/ideas/none4");
+    var e1 = try Entry.create(&allocator, "/path/to/test1");
+    var e2 = try Entry.create(&allocator, "/other/path/to/none2");
+    var e3 = try Entry.create(&allocator, "/yet/another/path/to/test3");
+    var e4 = try Entry.create(&allocator, "/running/out/of/ideas/none4");
 
     var l = EntryList{};
-    defer l.destroy(allocator);
+    defer l.destroy();
 
     _ = l.appendUnique(e1);
     _ = l.appendUnique(e2);

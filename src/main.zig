@@ -13,8 +13,8 @@ pub fn main() anyerror!void {
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
 
-    var entries = try EntryList.create(allocator);
-    defer entries.destroy(allocator);
+    var entries = try EntryList.create(&allocator);
+    defer entries.destroy();
 
     const select = try runMenu(allocator, &entries);
     if (select != null) {
