@@ -9,18 +9,18 @@ A dmenu-inspired dynamic terminal-based application menu.
 
 
 ## Usage
-To build `tmenu`, simply run:
+To build and install `tmenu` to `$HOME/.local/bin`, simply run:
 ```
-zig build -Drelease-fast=true
+apt-get install libncurses-dev && \
+zig build -Drelease-fast=true -p $HOME/.local install
 ```
 
-With `tmenu` on your `PATH`, to create a keymap to `tmenu` in `zsh`, add something along the lines of the following to your `.zshrc`:
+To create a keymap to `tmenu` in `zsh`, add something along the lines of the following to your `.zshrc`:
 ```
 bindkey -s '^u' 'tmenu^M'
 ```
 
 ### TODO
-- Add installation recipe to build script and update readme accordingly.
 - Switch from GeneralPurposeAllocator to something more performant.
 - Tidy up build script.
 - Move ncurses code out of main.zig.
