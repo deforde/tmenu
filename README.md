@@ -21,7 +21,6 @@ bindkey -s '^u' 'tmenu^M'
 ```
 
 ### TODO
-- Handle C ffi return codes correctly.
 - Possible features:
     - Fuzzy filtering.
     - vi bindings.

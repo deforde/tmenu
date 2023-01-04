@@ -8,7 +8,7 @@ pub const Entry = struct {
     path: ?[:0]u8 = null,
     allocator: *const Allocator,
 
-    pub fn create(allocator: *const Allocator, s: []const u8) anyerror!*Entry {
+    pub fn create(allocator: *const Allocator, s: []const u8) !*Entry {
         var e = try allocator.create(Entry);
         e.* = Entry{ .allocator = allocator };
         e.path = try allocator.allocSentinel(u8, s.len, 0);
@@ -128,7 +128,7 @@ pub const EntryList = struct {
         }
     }
 
-    pub fn create(allocator: *const Allocator) anyerror!EntryList {
+    pub fn create(allocator: *const Allocator) !EntryList {
         var l = EntryList{};
 
         const env_path = std.os.getenv("PATH").?;

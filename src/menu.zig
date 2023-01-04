@@ -10,19 +10,25 @@ const c = @cImport({
 const Entry = @import("entry.zig").Entry;
 const EntryList = @import("entry.zig").EntryList;
 
+fn check(res: c_int) !void {
+    if (res == c.ERR) {
+        return error.CursesError;
+    }
+}
+
 const Menu = struct {
     ncmenu: *c.MENU,
     ncwin: *c.WINDOW,
     items: []?*c.ITEM,
     allocator: *const Allocator,
 
-    fn buildItemList(entries: EntryList, allocator: Allocator) anyerror![]?*c.ITEM {
+    fn buildItemList(entries: EntryList, allocator: Allocator) ![]?*c.ITEM {
         var items = try allocator.alloc(?*c.ITEM, entries.len + 2);
         var i: usize = 0;
         var e = entries.head;
         while (e != null) : (e = e.?.next) {
             items[i] = c.new_item(e.?.name.?.ptr, null);
-            _ = c.set_item_userptr(items[i], e.?);
+            try check(c.set_item_userptr(items[i], e.?));
             i += 1;
         }
         items[i] = c.new_item(" ", null);
@@ -30,20 +36,20 @@ const Menu = struct {
         return items;
     }
 
-    fn destroyItemList(items: []?*c.ITEM, allocator: Allocator) void {
+    fn destroyItemList(items: []?*c.ITEM, allocator: Allocator) !void {
         for (items) |item| {
-            _ = c.free_item(item);
+            try check(c.free_item(item));
         }
         allocator.free(items);
     }
 
-    pub fn create(allocator: *const Allocator, entries: EntryList) anyerror!Menu {
+    pub fn create(allocator: *const Allocator, entries: EntryList) !Menu {
         var items = try buildItemList(entries, allocator.*);
 
         _ = c.initscr();
-        _ = c.cbreak();
-        _ = c.noecho();
-        _ = c.keypad(c.stdscr, true);
+        try check(c.cbreak());
+        try check(c.noecho());
+        try check(c.keypad(c.stdscr, true));
 
         var ncmenu = c.new_menu(@ptrCast([*c][*c]c.ITEM, &items[0]));
 
@@ -52,17 +58,17 @@ const Menu = struct {
         var nrows_win: c_int = nrows - 3;
         var ncols_win: c_int = ncols - 2;
         var ncwin = c.newwin(nrows_win, ncols_win, 1, 2);
-        _ = c.keypad(ncwin, false);
+        try check(c.keypad(ncwin, false));
 
-        _ = c.set_menu_mark(ncmenu, "");
-        _ = c.set_menu_win(ncmenu, ncwin);
-        _ = c.set_menu_sub(ncmenu, c.derwin(ncwin, nrows_win, ncols_win, 0, 0));
-        _ = c.mvprintw(c.LINES - 2, 0, "F1 to exit");
-        _ = c.move(0, 0);
-        _ = c.refresh();
+        try check(c.set_menu_mark(ncmenu, ""));
+        try check(c.set_menu_win(ncmenu, ncwin));
+        try check(c.set_menu_sub(ncmenu, c.derwin(ncwin, nrows_win, ncols_win, 0, 0)));
+        try check(c.mvprintw(c.LINES - 2, 0, "F1 to exit"));
+        try check(c.move(0, 0));
+        try check(c.refresh());
 
-        _ = c.post_menu(ncmenu);
-        _ = c.wrefresh(ncwin);
+        try check(c.post_menu(ncmenu));
+        try check(c.wrefresh(ncwin));
 
         return Menu{
             .ncmenu = ncmenu,
@@ -73,41 +79,41 @@ const Menu = struct {
     }
 
     pub fn destroy(self: *Menu) void {
-        _ = c.unpost_menu(self.ncmenu);
-        _ = c.free_menu(self.ncmenu);
-        _ = c.endwin();
-        defer destroyItemList(self.items, self.allocator.*);
+        check(c.unpost_menu(self.ncmenu)) catch {};
+        check(c.free_menu(self.ncmenu)) catch {};
+        check(c.endwin()) catch {};
+        destroyItemList(self.items, self.allocator.*) catch {};
     }
 
-    pub fn addChar(self: *Menu, ch: c_int) void {
+    pub fn addChar(self: *Menu, ch: c_int) !void {
         _ = self;
-        _ = c.addch(@intCast(c_uint, ch));
+        try check(c.addch(@intCast(c_uint, ch)));
     }
 
-    pub fn deleteChar(self: *Menu) void {
+    pub fn deleteChar(self: *Menu) !void {
         _ = self;
         const x = c.getcurx(c.stdscr);
         if (x > 0) {
-            _ = c.move(0, @intCast(c_int, x - 1));
-            _ = c.clrtoeol();
+            try check(c.move(0, @intCast(c_int, x - 1)));
+            try check(c.clrtoeol());
         }
     }
 
-    pub fn updateItemList(self: *Menu, entries: EntryList) anyerror!void {
+    pub fn updateItemList(self: *Menu, entries: EntryList) !void {
         var new_items = try buildItemList(entries, self.allocator.*);
-        _ = c.unpost_menu(self.ncmenu);
-        _ = c.set_menu_items(self.ncmenu, @ptrCast([*c][*c]c.ITEM, &new_items[0]));
-        destroyItemList(self.items, self.allocator.*);
+        try check(c.unpost_menu(self.ncmenu));
+        try check(c.set_menu_items(self.ncmenu, @ptrCast([*c][*c]c.ITEM, &new_items[0])));
+        try destroyItemList(self.items, self.allocator.*);
         self.items = new_items;
-        _ = c.post_menu(self.ncmenu);
+        try check(c.post_menu(self.ncmenu));
     }
 
-    pub fn moveUp(self: *Menu) void {
-        _ = c.menu_driver(self.ncmenu, c.REQ_UP_ITEM);
+    pub fn moveUp(self: *Menu) !void {
+        try check(c.menu_driver(self.ncmenu, c.REQ_UP_ITEM));
     }
 
-    pub fn moveDown(self: *Menu) void {
-        _ = c.menu_driver(self.ncmenu, c.REQ_DOWN_ITEM);
+    pub fn moveDown(self: *Menu) !void {
+        try check(c.menu_driver(self.ncmenu, c.REQ_DOWN_ITEM));
     }
 
     pub fn getCurrentSelection(self: *Menu) ?*Entry {
@@ -118,12 +124,12 @@ const Menu = struct {
         return null;
     }
 
-    pub fn refresh(self: *Menu) void {
-        _ = c.wrefresh(self.ncwin);
+    pub fn refresh(self: *Menu) !void {
+        try check(c.wrefresh(self.ncwin));
     }
 };
 
-pub fn runMenu(allocator: Allocator, entries: *EntryList) anyerror!?*Entry {
+pub fn runMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
     var fout = EntryList{};
     defer {
         entries.extend(fout);
@@ -141,10 +147,10 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) anyerror!?*Entry {
         ch = c.getch();
         switch (ch) {
             c.KEY_DOWN => {
-                menu.moveDown();
+                try menu.moveDown();
             },
             c.KEY_UP => {
-                menu.moveUp();
+                try menu.moveUp();
             },
             '\n' => {
                 return menu.getCurrentSelection();
@@ -156,7 +162,7 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) anyerror!?*Entry {
                     entries.extend(fout);
                     fout.clear();
                     entries.filter(&fout, efilter[0..efilter_idx]);
-                    menu.deleteChar();
+                    try menu.deleteChar();
                     try menu.updateItemList(entries.*);
                 }
             },
@@ -168,12 +174,12 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) anyerror!?*Entry {
                     efilter[efilter_idx] = @intCast(u8, ch);
                     efilter_idx += 1;
                     entries.filter(&fout, efilter[0..efilter_idx]);
-                    menu.addChar(ch);
+                    try menu.addChar(ch);
                     try menu.updateItemList(entries.*);
                 }
             },
         }
-        menu.refresh();
+        try menu.refresh();
     }
 
     return null;
