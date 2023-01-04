@@ -83,7 +83,8 @@ const Menu = struct {
     }
 
     pub fn deleteChar(self: *Menu) void {
-        const x = c.getcurx(self.ncwin);
+        _ = self;
+        const x = c.getcurx(c.stdscr);
         if (x > 0) {
             _ = c.move(0, @intCast(c_int, x - 1));
             _ = c.clrtoeol();
