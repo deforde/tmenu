@@ -163,6 +163,8 @@ pub const EntryList = struct {
             }
         }
 
+        l.sort();
+
         return l;
     }
 
