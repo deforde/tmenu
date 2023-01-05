@@ -165,4 +165,37 @@ pub const EntryList = struct {
 
         return l;
     }
+
+    pub fn sort(self: *EntryList) void {
+        var cur = self.head;
+        while (cur != null) {
+            var next = cur.?.next;
+            var ins = cur.?.prev;
+
+            self.remove(cur.?);
+
+            while (ins != null and std.mem.lessThan(u8, cur.?.name.?, ins.?.name.?)) : (ins = ins.?.prev) {}
+
+            if (ins != null) {
+                cur.?.next = ins.?.next;
+                cur.?.prev = ins;
+                if (cur.?.next != null) {
+                    cur.?.next.?.prev = cur;
+                }
+                ins.?.next = cur;
+                if (self.tail == ins) {
+                    self.tail = cur;
+                }
+            } else {
+                ins = self.head;
+                ins.?.prev = cur;
+                cur.?.next = ins;
+                self.head = cur;
+            }
+
+            self.len += 1;
+
+            cur = next;
+        }
+    }
 };

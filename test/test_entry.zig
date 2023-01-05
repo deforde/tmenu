@@ -360,7 +360,7 @@ test "entry_list_extend" {
     try std.testing.expectEqualStrings("test4", l.tail.?.name.?);
 }
 
-test "entry_filter" {
+test "entry_list_filter" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer std.debug.assert(!gpa.deinit());
@@ -409,4 +409,36 @@ test "entry_filter" {
     try std.testing.expectEqualStrings("none4", fout.tail.?.name.?);
 
     l.extend(fout);
+}
+
+test "entry_list_sort" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer std.debug.assert(!gpa.deinit());
+
+    var e1 = try Entry.create(&allocator, "abcd");
+    var e2 = try Entry.create(&allocator, "efgh");
+    var e3 = try Entry.create(&allocator, "ijkl");
+    var e4 = try Entry.create(&allocator, "mnop");
+
+    var l = EntryList{};
+    defer l.destroy();
+
+    _ = l.appendUnique(e3);
+    _ = l.appendUnique(e2);
+    _ = l.appendUnique(e4);
+    _ = l.appendUnique(e1);
+
+    l.sort();
+
+    try std.testing.expectEqual(@as(usize, 4), l.len);
+    try std.testing.expect(l.head != null);
+    try std.testing.expect(l.tail != null);
+    try std.testing.expect(l.head.?.name != null);
+    try std.testing.expect(l.tail.?.name != null);
+    try std.testing.expect(l.head != l.tail);
+    try std.testing.expectEqualStrings("abcd", l.head.?.name.?);
+    try std.testing.expectEqualStrings("efgh", l.head.?.next.?.name.?);
+    try std.testing.expectEqualStrings("ijkl", l.tail.?.prev.?.name.?);
+    try std.testing.expectEqualStrings("mnop", l.tail.?.name.?);
 }

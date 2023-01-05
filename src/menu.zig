@@ -170,6 +170,7 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
                     entries.extend(fout);
                     fout.clear();
                     entries.filter(&fout, efilter[0..efilter_idx]);
+                    entries.sort();
                     try menu.deleteChar();
                     try menu.updateItemList(entries.*);
                 }
@@ -182,6 +183,7 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
                     efilter[efilter_idx] = @intCast(u8, ch);
                     efilter_idx += 1;
                     entries.filter(&fout, efilter[0..efilter_idx]);
+                    entries.sort();
                     try menu.addChar(ch);
                     try menu.updateItemList(entries.*);
                 }
