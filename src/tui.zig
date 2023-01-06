@@ -285,15 +285,15 @@ const LightMenu = struct {
         try self.stdout.writeAll("\x1b[J");
     }
 
-    pub fn render(self: *LightMenu, entries: EntryList, efilter: []u8) !void {
+    pub fn render(self: *LightMenu, entry: ?*Entry, efilter: []u8) !void {
         var i: usize = 0;
-        var e = entries.head;
+        var e = entry;
         while (i < self.height) : (i += 1) {
             if (e != null) {
                 try self.stdout.print("    {s}", .{e.?.name.?});
                 e = e.?.next;
             }
-            try self.stdout.writeAll("\r\n");
+            try self.newline();
         }
         try self.stdout.print("\r{s}", .{efilter});
     }
@@ -305,80 +305,113 @@ const LightMenu = struct {
     pub fn newline(self: *LightMenu) !void {
         try self.stdout.writeAll("\r\n");
     }
+
+    pub fn run(self: *LightMenu, entries: *EntryList) !?*Entry {
+        var fout = EntryList{};
+        defer {
+            entries.extend(fout);
+            fout.clear();
+        }
+
+        var efilter = [_]u8{0} ** std.os.PATH_MAX;
+        var efilter_idx: usize = 0;
+
+        var cur_head = entries.head;
+        var sel_y = self.orig_y;
+
+        var ch: u8 = 0;
+        while (true) {
+            try self.clearScreen();
+            try self.render(cur_head, efilter[0..efilter_idx]);
+
+            ch = try self.readByte();
+
+            switch (ch) {
+                '\n' => {
+                    return null;
+                },
+                @enumToInt(KEYS.ESC) => {
+                    var esc_seq: u16 = 0;
+                    var j: u4 = 0;
+                    while (j < 2) : (j += 1) {
+                        esc_seq |= @intCast(u16, try self.readByte()) << ((1 - j) * 8);
+                    }
+                    switch (esc_seq) {
+                        @enumToInt(KEYS.F1) => {
+                            try self.newline();
+                            return null;
+                        },
+                        @enumToInt(KEYS.UP) => {
+                            if (sel_y != self.orig_y) {
+                                sel_y -= 1;
+                            } else if (cur_head != null and cur_head.?.prev != null) {
+                                cur_head = cur_head.?.prev;
+                            }
+                        },
+                        @enumToInt(KEYS.DWN) => {
+                            if (sel_y != (self.orig_y + self.height - 1)) {
+                                sel_y += 1;
+                            } else if (cur_head != null) {
+                                var rem_depth: usize = 0;
+                                var e = cur_head;
+                                while (e.?.next != null) : (e = e.?.next) {
+                                    rem_depth += 1;
+                                }
+                                if (rem_depth > self.height) {
+                                    cur_head = cur_head.?.next;
+                                }
+                            }
+                        },
+                        else => {
+                            // try self.stdout.print("\r\nunknown escape sequence: {}\r\n", .{esc_seq});
+                        },
+                    }
+                },
+                @enumToInt(KEYS.BKSPC) => {
+                    if (efilter_idx > 0) {
+                        efilter_idx -= 1;
+                        efilter[efilter_idx] = 0;
+                        entries.extend(fout);
+                        fout.clear();
+                        entries.filter(&fout, efilter[0..efilter_idx]);
+                        entries.sort();
+                        cur_head = entries.head;
+                    }
+                },
+                else => {
+                    if (c.isgraph(@intCast(c_int, ch)) != 0) {
+                        efilter[efilter_idx] = @intCast(u8, ch);
+                        efilter_idx += 1;
+                        entries.filter(&fout, efilter[0..efilter_idx]);
+                        entries.sort();
+                        cur_head = entries.head;
+                    }
+                },
+            }
+
+            // if (c.isgraph(@intCast(c_int, ch)) != 0) {
+            //     try stdout.print("you entered: {} ({c})\r\n", .{ ch, ch });
+            // } else {
+            //     try stdout.print("you entered: {}\r\n", .{ch});
+            // }
+            // try stdout.writeAll("you entered: ");
+            // try stdout.writeAll(&[_]u8{ ch, '\r', '\n' });
+        }
+
+        return null;
+    }
 };
 
 const KEYS = enum(u16) {
     ESC = 27,
     F1 = 20304,
     BKSPC = 127,
+    UP = 23361,
+    DWN = 23362,
 };
 
 pub fn runLightMenu(entries: *EntryList) !?*Entry {
     var menu = try LightMenu.create();
     defer menu.destroy();
-
-    var fout = EntryList{};
-    defer {
-        entries.extend(fout);
-        fout.clear();
-    }
-
-    var efilter = [_]u8{0} ** std.os.PATH_MAX;
-    var efilter_idx: usize = 0;
-
-    var ch: u8 = 0;
-    while (true) {
-        try menu.clearScreen();
-        try menu.render(entries.*, efilter[0..efilter_idx]);
-
-        ch = try menu.readByte();
-
-        switch (ch) {
-            @enumToInt(KEYS.ESC) => {
-                var esc_seq: u16 = 0;
-                var j: u4 = 0;
-                while (j < 2) : (j += 1) {
-                    esc_seq |= @intCast(u16, try menu.readByte()) << ((1 - j) * 8);
-                }
-                switch (esc_seq) {
-                    @enumToInt(KEYS.F1) => {
-                        try menu.newline();
-                        return null;
-                    },
-                    else => {
-                        // try stdout.print("\r\nunknown escape sequence: {}\r\n", .{esc_seq});
-                        // return null;
-                    },
-                }
-            },
-            @enumToInt(KEYS.BKSPC) => {
-                if (efilter_idx > 0) {
-                    efilter_idx -= 1;
-                    efilter[efilter_idx] = 0;
-                    entries.extend(fout);
-                    fout.clear();
-                    entries.filter(&fout, efilter[0..efilter_idx]);
-                    entries.sort();
-                }
-            },
-            else => {
-                if (c.isgraph(@intCast(c_int, ch)) != 0) {
-                    efilter[efilter_idx] = @intCast(u8, ch);
-                    efilter_idx += 1;
-                    entries.filter(&fout, efilter[0..efilter_idx]);
-                    entries.sort();
-                }
-            },
-        }
-
-        // if (c.isgraph(@intCast(c_int, ch)) != 0) {
-        //     try stdout.print("you entered: {} ({c})\r\n", .{ ch, ch });
-        // } else {
-        //     try stdout.print("you entered: {}\r\n", .{ch});
-        // }
-        // try stdout.writeAll("you entered: ");
-        // try stdout.writeAll(&[_]u8{ ch, '\r', '\n' });
-    }
-
-    return null;
+    return menu.run(entries);
 }
