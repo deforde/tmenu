@@ -189,8 +189,13 @@ pub const EntryList = struct {
                     self.tail = cur;
                 }
             } else {
-                ins = self.head;
-                ins.?.prev = cur;
+                if (self.head != null) {
+                    ins = self.head;
+                    ins.?.prev = cur;
+                }
+                if (self.tail == null) {
+                    self.tail = cur;
+                }
                 cur.?.next = ins;
                 self.head = cur;
             }

@@ -13,6 +13,9 @@ const c = @cImport({
     @cInclude("ctype.h");
     @cInclude("menu.h");
     @cInclude("ncurses.h");
+    @cInclude("stdio.h");
+    @cInclude("termios.h");
+    @cInclude("unistd.h");
 });
 
 const Entry = @import("entry.zig").Entry;
@@ -24,7 +27,7 @@ fn check(res: c_int) !void {
     }
 }
 
-const Menu = struct {
+const FullscreenMenu = struct {
     ncmenu: *c.MENU,
     ncwin: *c.WINDOW,
     items: []?*c.ITEM,
@@ -51,7 +54,7 @@ const Menu = struct {
         allocator.free(items);
     }
 
-    pub fn create(allocator: *const Allocator, entries: EntryList) !Menu {
+    pub fn create(allocator: *const Allocator, entries: EntryList) !FullscreenMenu {
         var items = try buildItemList(entries, allocator.*);
 
         _ = c.initscr();
@@ -78,7 +81,7 @@ const Menu = struct {
         try check(c.post_menu(ncmenu));
         try check(c.wrefresh(ncwin));
 
-        return Menu{
+        return FullscreenMenu{
             .ncmenu = ncmenu,
             .ncwin = ncwin,
             .items = items,
@@ -86,19 +89,19 @@ const Menu = struct {
         };
     }
 
-    pub fn destroy(self: *Menu) void {
+    pub fn destroy(self: *FullscreenMenu) void {
         check(c.unpost_menu(self.ncmenu)) catch {};
         check(c.free_menu(self.ncmenu)) catch {};
         check(c.endwin()) catch {};
         destroyItemList(self.items, self.allocator.*) catch {};
     }
 
-    pub fn addChar(self: *Menu, ch: c_int) !void {
+    pub fn addChar(self: *FullscreenMenu, ch: c_int) !void {
         _ = self;
         try check(c.addch(@intCast(c_uint, ch)));
     }
 
-    pub fn deleteChar(self: *Menu) !void {
+    pub fn deleteChar(self: *FullscreenMenu) !void {
         _ = self;
         const x = c.getcurx(c.stdscr);
         if (x > 0) {
@@ -107,7 +110,7 @@ const Menu = struct {
         }
     }
 
-    pub fn updateItemList(self: *Menu, entries: EntryList) !void {
+    pub fn updateItemList(self: *FullscreenMenu, entries: EntryList) !void {
         var new_items = try buildItemList(entries, self.allocator.*);
         try check(c.unpost_menu(self.ncmenu));
         try check(c.set_menu_items(self.ncmenu, @ptrCast([*c][*c]c.ITEM, &new_items[0])));
@@ -116,15 +119,15 @@ const Menu = struct {
         try check(c.post_menu(self.ncmenu));
     }
 
-    pub fn moveUp(self: *Menu) !void {
+    pub fn moveUp(self: *FullscreenMenu) !void {
         try check(c.menu_driver(self.ncmenu, c.REQ_UP_ITEM));
     }
 
-    pub fn moveDown(self: *Menu) !void {
+    pub fn moveDown(self: *FullscreenMenu) !void {
         try check(c.menu_driver(self.ncmenu, c.REQ_DOWN_ITEM));
     }
 
-    pub fn getCurrentSelection(self: *Menu) ?*Entry {
+    pub fn getCurrentSelection(self: *FullscreenMenu) ?*Entry {
         const usr_ptr = c.item_userptr(c.current_item(self.ncmenu));
         if (usr_ptr != null) {
             return @ptrCast(*Entry, @alignCast(8, usr_ptr.?));
@@ -132,12 +135,12 @@ const Menu = struct {
         return null;
     }
 
-    pub fn refresh(self: *Menu) !void {
+    pub fn refresh(self: *FullscreenMenu) !void {
         try check(c.wrefresh(self.ncwin));
     }
 };
 
-pub fn runMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
+pub fn runFullscreenMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
     var fout = EntryList{};
     defer {
         entries.extend(fout);
@@ -147,7 +150,7 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
     var efilter = [_]u8{0} ** std.os.PATH_MAX;
     var efilter_idx: usize = 0;
 
-    var menu = try Menu.create(&allocator, entries.*);
+    var menu = try FullscreenMenu.create(&allocator, entries.*);
     defer menu.destroy();
 
     var ch: c_int = 0;
@@ -190,6 +193,148 @@ pub fn runMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
             },
         }
         try menu.refresh();
+    }
+
+    return null;
+}
+
+fn enableTermRaw() c.termios {
+    var orig = c.termios{
+        .c_iflag = 0,
+        .c_oflag = 0,
+        .c_cflag = 0,
+        .c_lflag = 0,
+        .c_line = 0,
+        .c_cc = undefined,
+        .c_ispeed = 0,
+        .c_ospeed = 0,
+    };
+    _ = c.tcgetattr(c.STDIN_FILENO, &orig);
+
+    var new = orig;
+    new.c_iflag &= ~@intCast(c_uint, (c.IXON | c.ICRNL | c.BRKINT | c.INPCK | c.ISTRIP));
+    new.c_oflag &= ~@intCast(c_uint, c.OPOST);
+    new.c_cflag |= c.CS8;
+    new.c_lflag &= ~@intCast(c_uint, (c.ECHO | c.ICANON | c.ISIG | c.IEXTEN));
+    _ = c.tcsetattr(c.STDIN_FILENO, c.TCSAFLUSH, &new);
+
+    return orig;
+}
+
+fn resetTerm(term: c.termios) void {
+    _ = c.tcsetattr(c.STDIN_FILENO, c.TCSAFLUSH, &term);
+}
+
+pub fn runLightMenu(entries: *EntryList) !?*Entry {
+    const stdin = std.io.getStdIn().reader();
+    const stdout = std.io.getStdOut().writer();
+
+    const height: usize = 10;
+    var k: usize = 0;
+    while (k < height) : (k += 1) {
+        try stdout.writeAll("\r\n");
+    }
+
+    const orig = enableTermRaw();
+    defer resetTerm(orig);
+
+    var fout = EntryList{};
+    defer {
+        entries.extend(fout);
+        fout.clear();
+    }
+
+    var efilter = [_]u8{0} ** std.os.PATH_MAX;
+    var efilter_idx: usize = 0;
+
+    var ch: u8 = 0;
+
+    try stdout.writeAll("\x1b[6n");
+    ch = try stdin.readByte();
+    std.debug.assert(ch == 27);
+    ch = try stdin.readByte();
+    std.debug.assert(ch == '[');
+    var tmp = [_]u8{0} ** 128;
+    var tmp_idx: usize = 0;
+    while (ch != ';') {
+        ch = try stdin.readByte();
+        tmp[tmp_idx] = ch;
+        tmp_idx += 1;
+    }
+    const strt_y = try std.fmt.parseInt(usize, tmp[0 .. tmp_idx - 1], 10) - height;
+    tmp_idx = 0;
+    while (ch != 'R') {
+        ch = try stdin.readByte();
+        tmp[tmp_idx] = ch;
+        tmp_idx += 1;
+    }
+    const strt_x = try std.fmt.parseInt(usize, tmp[0 .. tmp_idx - 1], 10);
+
+    while (true) {
+        try stdout.writeAll(try std.fmt.bufPrint(&tmp, "\x1b[{};{}H", .{ strt_y, strt_x }));
+        try stdout.writeAll("\x1b[J");
+        var i: usize = 0;
+        var e = entries.head;
+        while (i < height) : (i += 1) {
+            if (e != null) {
+                try stdout.print("    {s}", .{e.?.name.?});
+                e = e.?.next;
+            }
+            try stdout.writeAll("\r\n");
+        }
+        try stdout.print("\r{s}", .{efilter[0..efilter_idx]});
+
+        // _ = strt_y;
+        // _ = strt_x;
+        // _ = entries;
+
+        ch = try stdin.readByte();
+
+        switch (ch) {
+            27 => {
+                var esc_seq: u16 = 0;
+                var j: u4 = 0;
+                while (j < 2) : (j += 1) {
+                    esc_seq |= @intCast(u16, try stdin.readByte()) << ((1 - j) * 8);
+                }
+                switch (esc_seq) {
+                    20304 => {
+                        try stdout.writeAll("\r\n");
+                        return null;
+                    },
+                    else => {
+                        // try stdout.print("\r\nunknown escape sequence: {}\r\n", .{esc_seq});
+                        // return null;
+                    },
+                }
+            },
+            127 => {
+                if (efilter_idx > 0) {
+                    efilter_idx -= 1;
+                    efilter[efilter_idx] = 0;
+                    entries.extend(fout);
+                    fout.clear();
+                    entries.filter(&fout, efilter[0..efilter_idx]);
+                    entries.sort();
+                }
+            },
+            else => {
+                if (c.isgraph(@intCast(c_int, ch)) != 0) {
+                    efilter[efilter_idx] = @intCast(u8, ch);
+                    efilter_idx += 1;
+                    entries.filter(&fout, efilter[0..efilter_idx]);
+                    entries.sort();
+                }
+            },
+        }
+
+        // if (c.isgraph(@intCast(c_int, ch)) != 0) {
+        //     try stdout.print("you entered: {} ({c})\r\n", .{ ch, ch });
+        // } else {
+        //     try stdout.print("you entered: {}\r\n", .{ch});
+        // }
+        // try stdout.writeAll("you entered: ");
+        // try stdout.writeAll(&[_]u8{ ch, '\r', '\n' });
     }
 
     return null;
