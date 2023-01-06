@@ -266,6 +266,9 @@ const LightMenu = struct {
     }
 
     fn updateSel(self: *LightMenu, cur_head: ?*Entry, sel_y: usize) ?*Entry {
+        if (sel_y < self.orig_y) {
+            return null;
+        }
         var pos = sel_y - self.orig_y;
         var i: usize = 0;
         var e = cur_head;
@@ -279,7 +282,7 @@ const LightMenu = struct {
     fn getCurrentDepth(cur_head: ?*Entry) usize {
         var depth: usize = 0;
         var e = cur_head;
-        while (e.?.next != null) : (e = e.?.next) {
+        while (e != null) : (e = e.?.next) {
             depth += 1;
         }
         return depth;
@@ -357,6 +360,9 @@ const LightMenu = struct {
                         entries.filter(&fout, efilter[0..efilter_idx]);
                         entries.sort();
                         cur_head = entries.head;
+                        if (cur_head != null) {
+                            sel_y = std.math.max(sel_y, self.orig_y);
+                        }
                         cur_sel = self.updateSel(cur_head, sel_y);
                     }
                 },
@@ -368,7 +374,7 @@ const LightMenu = struct {
                         entries.sort();
                         cur_head = entries.head;
                         const depth = getCurrentDepth(cur_head);
-                        sel_y = std.math.min(sel_y, self.orig_y + depth);
+                        sel_y = std.math.min(sel_y, self.orig_y + depth - 1);
                         cur_sel = self.updateSel(cur_head, sel_y);
                     }
                     // else {
