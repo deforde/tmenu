@@ -147,6 +147,61 @@ const FullscreenMenu = struct {
     pub fn refresh(self: *FullscreenMenu) !void {
         try check(c.wrefresh(self.ncwin));
     }
+
+    pub fn run(self: *FullscreenMenu, entries: *EntryList) !?*Entry {
+        var fout = EntryList{};
+        defer {
+            entries.extend(fout);
+            fout.clear();
+        }
+
+        var efilter = [_]u8{0} ** std.os.PATH_MAX;
+        var efilter_idx: usize = 0;
+
+        var ch: c_int = 0;
+        while (true) {
+            ch = c.getch();
+            switch (ch) {
+                c.KEY_DOWN => {
+                    try self.moveDown();
+                },
+                c.KEY_UP => {
+                    try self.moveUp();
+                },
+                '\n' => {
+                    return self.getCurrentSelection();
+                },
+                c.KEY_BACKSPACE => {
+                    if (efilter_idx > 0) {
+                        efilter_idx -= 1;
+                        efilter[efilter_idx] = 0;
+                        entries.extend(fout);
+                        fout.clear();
+                        entries.filter(&fout, efilter[0..efilter_idx]);
+                        entries.sort();
+                        try self.deleteChar();
+                        try self.updateItemList(entries.*);
+                    }
+                },
+                c.KEY_F(1) => {
+                    break;
+                },
+                else => {
+                    if (c.isgraph(ch) != 0) {
+                        efilter[efilter_idx] = @intCast(u8, ch);
+                        efilter_idx += 1;
+                        entries.filter(&fout, efilter[0..efilter_idx]);
+                        entries.sort();
+                        try self.addChar(ch);
+                        try self.updateItemList(entries.*);
+                    }
+                },
+            }
+            try self.refresh();
+        }
+
+        return null;
+    }
 };
 
 const LightMenu = struct {
@@ -390,61 +445,9 @@ const LightMenu = struct {
 };
 
 pub fn runFullscreenMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
-    var fout = EntryList{};
-    defer {
-        entries.extend(fout);
-        fout.clear();
-    }
-
-    var efilter = [_]u8{0} ** std.os.PATH_MAX;
-    var efilter_idx: usize = 0;
-
     var menu = try FullscreenMenu.create(&allocator, entries.*);
     defer menu.destroy();
-
-    var ch: c_int = 0;
-    while (true) {
-        ch = c.getch();
-        switch (ch) {
-            c.KEY_DOWN => {
-                try menu.moveDown();
-            },
-            c.KEY_UP => {
-                try menu.moveUp();
-            },
-            '\n' => {
-                return menu.getCurrentSelection();
-            },
-            c.KEY_BACKSPACE => {
-                if (efilter_idx > 0) {
-                    efilter_idx -= 1;
-                    efilter[efilter_idx] = 0;
-                    entries.extend(fout);
-                    fout.clear();
-                    entries.filter(&fout, efilter[0..efilter_idx]);
-                    entries.sort();
-                    try menu.deleteChar();
-                    try menu.updateItemList(entries.*);
-                }
-            },
-            c.KEY_F(1) => {
-                break;
-            },
-            else => {
-                if (c.isgraph(ch) != 0) {
-                    efilter[efilter_idx] = @intCast(u8, ch);
-                    efilter_idx += 1;
-                    entries.filter(&fout, efilter[0..efilter_idx]);
-                    entries.sort();
-                    try menu.addChar(ch);
-                    try menu.updateItemList(entries.*);
-                }
-            },
-        }
-        try menu.refresh();
-    }
-
-    return null;
+    return menu.run(entries);
 }
 
 pub fn runLightMenu(entries: *EntryList) !?*Entry {
