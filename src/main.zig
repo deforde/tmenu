@@ -56,13 +56,13 @@ pub fn main() !u8 {
     var fullscreen = false;
 
     for (args[1..]) |arg| {
-        if (std.mem.eql(u8, arg, "--help") or std.mem.startsWith(u8, arg, "-h")) {
+        if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
             try usage();
             return 0;
-        } else if (std.mem.eql(u8, arg, "--version") or std.mem.startsWith(u8, arg, "-v")) {
+        } else if (std.mem.eql(u8, arg, "--version") or std.mem.eql(u8, arg, "-v")) {
             try printVersion();
             return 0;
-        } else if (std.mem.eql(u8, arg, "--fullscreen") or std.mem.startsWith(u8, arg, "-f")) {
+        } else if (std.mem.eql(u8, arg, "--fullscreen") or std.mem.eql(u8, arg, "-f")) {
             fullscreen = true;
         } else {
             try reportArgError(arg);
