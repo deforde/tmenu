@@ -5,6 +5,8 @@ A dmenu-inspired dynamic terminal-based application menu.
 [![tests](https://github.com/deforde/tmenu/actions/workflows/test.yml/badge.svg)](https://github.com/deforde/tmenu/actions/workflows/test.yml)
 
 
+_A demonstration of the ncurses-based full screen tui_
+
 ![demo](https://user-images.githubusercontent.com/7503504/210788590-dd8212c7-d491-4425-891c-bf73f758bb2f.gif)
 
 
@@ -19,6 +21,9 @@ To create a keymap to `tmenu` in `zsh`, add something along the lines of the fol
 ```
 bindkey -s '^u' 'tmenu^M'
 ```
+
+By default, `tmenu` will use a 'light' tui menu implementation that does not clear the entire screen.
+Should you prefer to use the `ncurses`-based full screen tui implementation, pass the `-f` or `--fullscreen` flag to `tmenu` on invocation.
 
 ### TODO
 - Possible features:
