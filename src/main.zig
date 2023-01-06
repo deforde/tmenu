@@ -28,6 +28,7 @@ pub fn main() !void {
     // const select = try runFullscreenMenu(allocator, &entries);
     const select = try runLightMenu(&entries);
     if (select != null) {
-        _ = c.execl(select.?.path.?.ptr, select.?.name.?.ptr, c.NULL);
+        std.debug.print("\nTo run cmd: {s}\n", .{select.?.name.?});
+        // _ = c.execl(select.?.path.?.ptr, select.?.name.?.ptr, c.NULL);
     }
 }

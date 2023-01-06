@@ -285,12 +285,20 @@ const LightMenu = struct {
         try self.stdout.writeAll("\x1b[J");
     }
 
-    pub fn render(self: *LightMenu, entry: ?*Entry, efilter: []u8) !void {
+    pub fn render(self: *LightMenu, entry: ?*Entry, sel_y: usize, efilter: []u8) !void {
         var i: usize = 0;
         var e = entry;
         while (i < self.height) : (i += 1) {
             if (e != null) {
-                try self.stdout.print("    {s}", .{e.?.name.?});
+                const is_sel = i == (sel_y - self.orig_y);
+                try self.stdout.writeAll("    ");
+                if (is_sel) {
+                    try self.stdout.writeAll("\x1b[47;30m");
+                }
+                try self.stdout.print("{s}", .{e.?.name.?});
+                if (is_sel) {
+                    try self.stdout.writeAll("\x1b[0m");
+                }
                 e = e.?.next;
             }
             try self.newline();
@@ -306,6 +314,17 @@ const LightMenu = struct {
         try self.stdout.writeAll("\r\n");
     }
 
+    fn updateSel(self: *LightMenu, cur_head: ?*Entry, sel_y: usize) ?*Entry {
+        var pos = sel_y - self.orig_y;
+        var i: usize = 0;
+        var e = cur_head;
+        while (i < pos and e != null) {
+            e = e.?.next;
+            i += 1;
+        }
+        return e;
+    }
+
     pub fn run(self: *LightMenu, entries: *EntryList) !?*Entry {
         var fout = EntryList{};
         defer {
@@ -317,18 +336,19 @@ const LightMenu = struct {
         var efilter_idx: usize = 0;
 
         var cur_head = entries.head;
+        var cur_sel = cur_head;
         var sel_y = self.orig_y;
 
         var ch: u8 = 0;
         while (true) {
             try self.clearScreen();
-            try self.render(cur_head, efilter[0..efilter_idx]);
+            try self.render(cur_head, sel_y, efilter[0..efilter_idx]);
 
             ch = try self.readByte();
 
             switch (ch) {
-                '\n' => {
-                    return null;
+                @enumToInt(KEYS.ENT) => {
+                    return cur_sel;
                 },
                 @enumToInt(KEYS.ESC) => {
                     var esc_seq: u16 = 0;
@@ -342,14 +362,17 @@ const LightMenu = struct {
                             return null;
                         },
                         @enumToInt(KEYS.UP) => {
-                            if (sel_y != self.orig_y) {
+                            if (sel_y != self.orig_y and cur_sel != null and cur_sel.?.prev != null) {
+                                cur_sel = cur_sel.?.prev.?;
                                 sel_y -= 1;
                             } else if (cur_head != null and cur_head.?.prev != null) {
                                 cur_head = cur_head.?.prev;
+                                cur_sel = cur_sel.?.prev.?;
                             }
                         },
                         @enumToInt(KEYS.DWN) => {
-                            if (sel_y != (self.orig_y + self.height - 1)) {
+                            if (sel_y != (self.orig_y + self.height - 1) and cur_sel.?.next != null) {
+                                cur_sel = cur_sel.?.next.?;
                                 sel_y += 1;
                             } else if (cur_head != null) {
                                 var rem_depth: usize = 0;
@@ -359,6 +382,7 @@ const LightMenu = struct {
                                 }
                                 if (rem_depth > self.height) {
                                     cur_head = cur_head.?.next;
+                                    cur_sel = self.updateSel(cur_head, sel_y);
                                 }
                             }
                         },
@@ -376,6 +400,7 @@ const LightMenu = struct {
                         entries.filter(&fout, efilter[0..efilter_idx]);
                         entries.sort();
                         cur_head = entries.head;
+                        cur_sel = self.updateSel(cur_head, sel_y);
                     }
                 },
                 else => {
@@ -385,7 +410,14 @@ const LightMenu = struct {
                         entries.filter(&fout, efilter[0..efilter_idx]);
                         entries.sort();
                         cur_head = entries.head;
+                        if (sel_y >= (self.orig_y + self.height)) {
+                            sel_y = self.orig_y + self.height - 1;
+                        }
+                        cur_sel = self.updateSel(cur_head, sel_y);
                     }
+                    // else {
+                    //     try self.stdout.print("\r\nunknown char: {}\r\n", .{ch});
+                    // }
                 },
             }
 
@@ -398,11 +430,12 @@ const LightMenu = struct {
             // try stdout.writeAll(&[_]u8{ ch, '\r', '\n' });
         }
 
-        return null;
+        return cur_sel;
     }
 };
 
 const KEYS = enum(u16) {
+    ENT = 13,
     ESC = 27,
     F1 = 20304,
     BKSPC = 127,
