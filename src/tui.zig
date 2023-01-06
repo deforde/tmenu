@@ -27,6 +27,15 @@ fn check(res: c_int) !void {
     }
 }
 
+const KEYS = enum(u16) {
+    ENT = 13,
+    ESC = 27,
+    F1 = 20304,
+    BKSPC = 127,
+    UP = 23361,
+    DWN = 23362,
+};
+
 const FullscreenMenu = struct {
     ncmenu: *c.MENU,
     ncwin: *c.WINDOW,
@@ -139,64 +148,6 @@ const FullscreenMenu = struct {
         try check(c.wrefresh(self.ncwin));
     }
 };
-
-pub fn runFullscreenMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
-    var fout = EntryList{};
-    defer {
-        entries.extend(fout);
-        fout.clear();
-    }
-
-    var efilter = [_]u8{0} ** std.os.PATH_MAX;
-    var efilter_idx: usize = 0;
-
-    var menu = try FullscreenMenu.create(&allocator, entries.*);
-    defer menu.destroy();
-
-    var ch: c_int = 0;
-    while (true) {
-        ch = c.getch();
-        switch (ch) {
-            c.KEY_DOWN => {
-                try menu.moveDown();
-            },
-            c.KEY_UP => {
-                try menu.moveUp();
-            },
-            '\n' => {
-                return menu.getCurrentSelection();
-            },
-            c.KEY_BACKSPACE => {
-                if (efilter_idx > 0) {
-                    efilter_idx -= 1;
-                    efilter[efilter_idx] = 0;
-                    entries.extend(fout);
-                    fout.clear();
-                    entries.filter(&fout, efilter[0..efilter_idx]);
-                    entries.sort();
-                    try menu.deleteChar();
-                    try menu.updateItemList(entries.*);
-                }
-            },
-            c.KEY_F(1) => {
-                break;
-            },
-            else => {
-                if (c.isgraph(ch) != 0) {
-                    efilter[efilter_idx] = @intCast(u8, ch);
-                    efilter_idx += 1;
-                    entries.filter(&fout, efilter[0..efilter_idx]);
-                    entries.sort();
-                    try menu.addChar(ch);
-                    try menu.updateItemList(entries.*);
-                }
-            },
-        }
-        try menu.refresh();
-    }
-
-    return null;
-}
 
 const LightMenu = struct {
     term: c.termios,
@@ -325,6 +276,15 @@ const LightMenu = struct {
         return e;
     }
 
+    fn getCurrentDepth(cur_head: ?*Entry) usize {
+        var depth: usize = 0;
+        var e = cur_head;
+        while (e.?.next != null) : (e = e.?.next) {
+            depth += 1;
+        }
+        return depth;
+    }
+
     pub fn run(self: *LightMenu, entries: *EntryList) !?*Entry {
         var fout = EntryList{};
         defer {
@@ -348,6 +308,7 @@ const LightMenu = struct {
 
             switch (ch) {
                 @enumToInt(KEYS.ENT) => {
+                    try self.clearScreen();
                     return cur_sel;
                 },
                 @enumToInt(KEYS.ESC) => {
@@ -358,7 +319,7 @@ const LightMenu = struct {
                     }
                     switch (esc_seq) {
                         @enumToInt(KEYS.F1) => {
-                            try self.newline();
+                            try self.clearScreen();
                             return null;
                         },
                         @enumToInt(KEYS.UP) => {
@@ -375,12 +336,8 @@ const LightMenu = struct {
                                 cur_sel = cur_sel.?.next.?;
                                 sel_y += 1;
                             } else if (cur_head != null) {
-                                var rem_depth: usize = 0;
-                                var e = cur_head;
-                                while (e.?.next != null) : (e = e.?.next) {
-                                    rem_depth += 1;
-                                }
-                                if (rem_depth > self.height) {
+                                const depth = getCurrentDepth(cur_head);
+                                if (depth > self.height) {
                                     cur_head = cur_head.?.next;
                                     cur_sel = self.updateSel(cur_head, sel_y);
                                 }
@@ -410,9 +367,8 @@ const LightMenu = struct {
                         entries.filter(&fout, efilter[0..efilter_idx]);
                         entries.sort();
                         cur_head = entries.head;
-                        if (sel_y >= (self.orig_y + self.height)) {
-                            sel_y = self.orig_y + self.height - 1;
-                        }
+                        const depth = getCurrentDepth(cur_head);
+                        sel_y = std.math.min(sel_y, self.orig_y + depth);
                         cur_sel = self.updateSel(cur_head, sel_y);
                     }
                     // else {
@@ -420,28 +376,70 @@ const LightMenu = struct {
                     // }
                 },
             }
-
-            // if (c.isgraph(@intCast(c_int, ch)) != 0) {
-            //     try stdout.print("you entered: {} ({c})\r\n", .{ ch, ch });
-            // } else {
-            //     try stdout.print("you entered: {}\r\n", .{ch});
-            // }
-            // try stdout.writeAll("you entered: ");
-            // try stdout.writeAll(&[_]u8{ ch, '\r', '\n' });
         }
 
+        try self.clearScreen();
         return cur_sel;
     }
 };
 
-const KEYS = enum(u16) {
-    ENT = 13,
-    ESC = 27,
-    F1 = 20304,
-    BKSPC = 127,
-    UP = 23361,
-    DWN = 23362,
-};
+pub fn runFullscreenMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
+    var fout = EntryList{};
+    defer {
+        entries.extend(fout);
+        fout.clear();
+    }
+
+    var efilter = [_]u8{0} ** std.os.PATH_MAX;
+    var efilter_idx: usize = 0;
+
+    var menu = try FullscreenMenu.create(&allocator, entries.*);
+    defer menu.destroy();
+
+    var ch: c_int = 0;
+    while (true) {
+        ch = c.getch();
+        switch (ch) {
+            c.KEY_DOWN => {
+                try menu.moveDown();
+            },
+            c.KEY_UP => {
+                try menu.moveUp();
+            },
+            '\n' => {
+                return menu.getCurrentSelection();
+            },
+            c.KEY_BACKSPACE => {
+                if (efilter_idx > 0) {
+                    efilter_idx -= 1;
+                    efilter[efilter_idx] = 0;
+                    entries.extend(fout);
+                    fout.clear();
+                    entries.filter(&fout, efilter[0..efilter_idx]);
+                    entries.sort();
+                    try menu.deleteChar();
+                    try menu.updateItemList(entries.*);
+                }
+            },
+            c.KEY_F(1) => {
+                break;
+            },
+            else => {
+                if (c.isgraph(ch) != 0) {
+                    efilter[efilter_idx] = @intCast(u8, ch);
+                    efilter_idx += 1;
+                    entries.filter(&fout, efilter[0..efilter_idx]);
+                    entries.sort();
+                    try menu.addChar(ch);
+                    try menu.updateItemList(entries.*);
+                }
+            },
+        }
+        try menu.refresh();
+    }
+
+    return null;
+}
 
 pub fn runLightMenu(entries: *EntryList) !?*Entry {
     var menu = try LightMenu.create();
