@@ -198,45 +198,124 @@ pub fn runFullscreenMenu(allocator: Allocator, entries: *EntryList) !?*Entry {
     return null;
 }
 
-fn enableTermRaw() c.termios {
-    var orig = c.termios{
-        .c_iflag = 0,
-        .c_oflag = 0,
-        .c_cflag = 0,
-        .c_lflag = 0,
-        .c_line = 0,
-        .c_cc = undefined,
-        .c_ispeed = 0,
-        .c_ospeed = 0,
-    };
-    _ = c.tcgetattr(c.STDIN_FILENO, &orig);
+const LightMenu = struct {
+    term: c.termios,
+    stdin: std.fs.File.Reader,
+    stdout: std.fs.File.Writer,
+    height: usize = 10,
+    orig_x: usize = 1,
+    orig_y: usize = 1,
 
-    var new = orig;
-    new.c_iflag &= ~@intCast(c_uint, (c.IXON | c.ICRNL | c.BRKINT | c.INPCK | c.ISTRIP));
-    new.c_oflag &= ~@intCast(c_uint, c.OPOST);
-    new.c_cflag |= c.CS8;
-    new.c_lflag &= ~@intCast(c_uint, (c.ECHO | c.ICANON | c.ISIG | c.IEXTEN));
-    _ = c.tcsetattr(c.STDIN_FILENO, c.TCSAFLUSH, &new);
+    fn enableTermRaw() c.termios {
+        var term = c.termios{
+            .c_iflag = 0,
+            .c_oflag = 0,
+            .c_cflag = 0,
+            .c_lflag = 0,
+            .c_line = 0,
+            .c_cc = undefined,
+            .c_ispeed = 0,
+            .c_ospeed = 0,
+        };
+        _ = c.tcgetattr(c.STDIN_FILENO, &term);
 
-    return orig;
-}
+        var new = term;
+        new.c_iflag &= ~@intCast(c_uint, (c.IXON | c.ICRNL | c.BRKINT | c.INPCK | c.ISTRIP));
+        new.c_oflag &= ~@intCast(c_uint, c.OPOST);
+        new.c_cflag |= c.CS8;
+        new.c_lflag &= ~@intCast(c_uint, (c.ECHO | c.ICANON | c.ISIG | c.IEXTEN));
+        _ = c.tcsetattr(c.STDIN_FILENO, c.TCSAFLUSH, &new);
 
-fn resetTerm(term: c.termios) void {
-    _ = c.tcsetattr(c.STDIN_FILENO, c.TCSAFLUSH, &term);
-}
-
-pub fn runLightMenu(entries: *EntryList) !?*Entry {
-    const stdin = std.io.getStdIn().reader();
-    const stdout = std.io.getStdOut().writer();
-
-    const height: usize = 10;
-    var k: usize = 0;
-    while (k < height) : (k += 1) {
-        try stdout.writeAll("\r\n");
+        return term;
     }
 
-    const orig = enableTermRaw();
-    defer resetTerm(orig);
+    fn resetTerm(term: c.termios) void {
+        _ = c.tcsetattr(c.STDIN_FILENO, c.TCSAFLUSH, &term);
+    }
+
+    pub fn create() !LightMenu {
+        const stdin = std.io.getStdIn().reader();
+        const stdout = std.io.getStdOut().writer();
+        const term = enableTermRaw();
+
+        const height: usize = 10;
+        var i: usize = 0;
+        while (i < height) : (i += 1) {
+            try stdout.writeAll("\r\n");
+        }
+
+        var ch: u8 = 0;
+        try stdout.writeAll("\x1b[6n");
+        ch = try stdin.readByte();
+        std.debug.assert(ch == 27);
+        ch = try stdin.readByte();
+        std.debug.assert(ch == '[');
+        var tmp = [_]u8{0} ** 128;
+        var tmp_idx: usize = 0;
+        while (ch != ';') {
+            ch = try stdin.readByte();
+            tmp[tmp_idx] = ch;
+            tmp_idx += 1;
+        }
+        const orig_y = try std.fmt.parseInt(usize, tmp[0 .. tmp_idx - 1], 10) - height;
+        tmp_idx = 0;
+        while (ch != 'R') {
+            ch = try stdin.readByte();
+            tmp[tmp_idx] = ch;
+            tmp_idx += 1;
+        }
+        const orig_x = try std.fmt.parseInt(usize, tmp[0 .. tmp_idx - 1], 10);
+
+        return LightMenu{
+            .term = term,
+            .stdin = stdin,
+            .stdout = stdout,
+            .orig_x = orig_x,
+            .orig_y = orig_y,
+        };
+    }
+
+    pub fn destroy(self: *LightMenu) void {
+        resetTerm(self.term);
+    }
+
+    pub fn clearScreen(self: *LightMenu) !void {
+        var tmp = [_]u8{0} ** 128;
+        try self.stdout.writeAll(try std.fmt.bufPrint(&tmp, "\x1b[{};{}H", .{ self.orig_y, self.orig_x }));
+        try self.stdout.writeAll("\x1b[J");
+    }
+
+    pub fn render(self: *LightMenu, entries: EntryList, efilter: []u8) !void {
+        var i: usize = 0;
+        var e = entries.head;
+        while (i < self.height) : (i += 1) {
+            if (e != null) {
+                try self.stdout.print("    {s}", .{e.?.name.?});
+                e = e.?.next;
+            }
+            try self.stdout.writeAll("\r\n");
+        }
+        try self.stdout.print("\r{s}", .{efilter});
+    }
+
+    pub fn readByte(self: *LightMenu) !u8 {
+        return try self.stdin.readByte();
+    }
+
+    pub fn newline(self: *LightMenu) !void {
+        try self.stdout.writeAll("\r\n");
+    }
+};
+
+const KEYS = enum(u16) {
+    ESC = 27,
+    F1 = 20304,
+    BKSPC = 127,
+};
+
+pub fn runLightMenu(entries: *EntryList) !?*Entry {
+    var menu = try LightMenu.create();
+    defer menu.destroy();
 
     var fout = EntryList{};
     defer {
@@ -248,58 +327,22 @@ pub fn runLightMenu(entries: *EntryList) !?*Entry {
     var efilter_idx: usize = 0;
 
     var ch: u8 = 0;
-
-    try stdout.writeAll("\x1b[6n");
-    ch = try stdin.readByte();
-    std.debug.assert(ch == 27);
-    ch = try stdin.readByte();
-    std.debug.assert(ch == '[');
-    var tmp = [_]u8{0} ** 128;
-    var tmp_idx: usize = 0;
-    while (ch != ';') {
-        ch = try stdin.readByte();
-        tmp[tmp_idx] = ch;
-        tmp_idx += 1;
-    }
-    const strt_y = try std.fmt.parseInt(usize, tmp[0 .. tmp_idx - 1], 10) - height;
-    tmp_idx = 0;
-    while (ch != 'R') {
-        ch = try stdin.readByte();
-        tmp[tmp_idx] = ch;
-        tmp_idx += 1;
-    }
-    const strt_x = try std.fmt.parseInt(usize, tmp[0 .. tmp_idx - 1], 10);
-
     while (true) {
-        try stdout.writeAll(try std.fmt.bufPrint(&tmp, "\x1b[{};{}H", .{ strt_y, strt_x }));
-        try stdout.writeAll("\x1b[J");
-        var i: usize = 0;
-        var e = entries.head;
-        while (i < height) : (i += 1) {
-            if (e != null) {
-                try stdout.print("    {s}", .{e.?.name.?});
-                e = e.?.next;
-            }
-            try stdout.writeAll("\r\n");
-        }
-        try stdout.print("\r{s}", .{efilter[0..efilter_idx]});
+        try menu.clearScreen();
+        try menu.render(entries.*, efilter[0..efilter_idx]);
 
-        // _ = strt_y;
-        // _ = strt_x;
-        // _ = entries;
-
-        ch = try stdin.readByte();
+        ch = try menu.readByte();
 
         switch (ch) {
-            27 => {
+            @enumToInt(KEYS.ESC) => {
                 var esc_seq: u16 = 0;
                 var j: u4 = 0;
                 while (j < 2) : (j += 1) {
-                    esc_seq |= @intCast(u16, try stdin.readByte()) << ((1 - j) * 8);
+                    esc_seq |= @intCast(u16, try menu.readByte()) << ((1 - j) * 8);
                 }
                 switch (esc_seq) {
-                    20304 => {
-                        try stdout.writeAll("\r\n");
+                    @enumToInt(KEYS.F1) => {
+                        try menu.newline();
                         return null;
                     },
                     else => {
@@ -308,7 +351,7 @@ pub fn runLightMenu(entries: *EntryList) !?*Entry {
                     },
                 }
             },
-            127 => {
+            @enumToInt(KEYS.BKSPC) => {
                 if (efilter_idx > 0) {
                     efilter_idx -= 1;
                     efilter[efilter_idx] = 0;
